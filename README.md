@@ -14,3 +14,8 @@ A Vibe Coding experiement, based on SS13
     * ~$.40 for the room navigation.
     * ~$.20 for the stock market refactor from something I had.
     * The rest is bug fixes for the above
+  * release 5.0.5 - Adding rooms to the station, as well as funcationality to the rooms, and new roles
+    * ~$1.05 to get the room working
+    * ~.20 for getting the roles implemented
+    * ~.30 for adding funcationality of roles to rooms
+    * The rest is bug fixes  
