@@ -1,18 +1,53 @@
-# Space Station Explorer
+# Space Station Explorer v5.0.0
 
-A simple menu-based space station exploring game built with Python and Tkinter.
+A text-based exploration game set on a space station, built with Python and Tkinter.
 
 ## Features
 
-- Main menu with New Game, Load Game, and Quit options
-- Character creation with name input and job selection
-- Exploration of your personal quarters with interactive objects
-- Inventory system with items to collect, view, and store
-- Character sheet displaying your stats and inventory
-- Complete station hallway navigation system with a full circuit layout
-- Continuously running stock market simulation that persists even when not viewing
-- Save/load game functionality using JSON files
-- Stock market mini-game where you can trade shares and earn credits
+### Core Gameplay
+- Explore a space station through a menu-driven interface
+- Navigate between different rooms and hallways
+- Interact with objects and NPCs in each location
+- Collect and manage inventory items
+- Save and load game progress
+
+### Character System
+- Create a character with a custom name
+- Choose from 5 different jobs:
+  - Staff Assistant (1000 credits)
+  - Engineer (2500 credits)
+  - Security Guard (5000 credits, Security access)
+  - Doctor (7500 credits, MedBay access)
+  - Captain (10000 credits, full station access)
+- Job-specific access to specialized station areas
+
+### Special Rooms
+- **Quarters**: Personal living space with storage, bed, and computer
+- **MedBay**: Medical facility with health checks and specialized equipment
+- **Bridge**: Command center for station operations
+- **Security**: Monitoring and security systems
+
+### Stock Market
+- Real-time stock market simulation
+- Buy and sell shares in various companies
+- Track market cycles and trade history
+- Make profits through smart trading
+
+### Advanced Features
+- Role-based access control to specialized station systems
+- Door locking/unlocking for authorized personnel
+- Cycle-based trade logging in stock market
+- Circuit-based station navigation system
+
+## Controls
+- Use buttons and menus to navigate and interact
+- Character-specific controls appear based on your job
+- Save your game by using your bed or the Save button
+
+## Getting Started
+1. Run `python run_game.py`
+2. Create a new character or load an existing one
+3. Explore the station and discover its secrets
 
 ## Requirements
 
