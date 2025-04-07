@@ -5,6 +5,19 @@ Run script for Space Station Explorer game
 
 import sys
 import os
+import tkinter as tk
+
+# Function to determine the base path for resources and saves
+def get_base_path():
+    """Get the base path for the application in both exe and script modes"""
+    if getattr(sys, 'frozen', False):
+        # If the application is run as a bundle (pyinstaller)
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # If run as a normal Python script
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
+    return base_path
 
 # Check Python version
 if sys.version_info < (3, 6):
@@ -22,12 +35,18 @@ except ImportError as e:
 
 # Run the game
 if __name__ == "__main__":
+    # Create saves folder if it doesn't exist
+    base_path = get_base_path()
+    saves_path = os.path.join(base_path, "saves")
+    
+    os.makedirs(saves_path, exist_ok=True)
+    
     # Import and run the game
     try:
         from game.main import SpaceStationGame
         
         root = tk.Tk()
-        app = SpaceStationGame(root)
+        app = SpaceStationGame(root, base_path)
         root.mainloop()
     except Exception as e:
         print(f"Error starting game: {e}")

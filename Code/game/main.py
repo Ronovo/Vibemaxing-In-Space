@@ -17,12 +17,69 @@ from matplotlib.figure import Figure
 from game.stock_market import StockMarket
 from game.stock_market import Company
 
+# Define the book contents
+BOOK_CONTENTS = {
+    "Welcome Guide": """WELCOME TO SPACE STATION EXPLORER
+
+Welcome to your new home among the stars! This guide will help you get acquainted with life aboard our station.
+
+IMPORTANT TIPS:
+- Always follow safety protocols
+- Report any unusual activity to Security
+- Keep your personal quarters clean and organized
+- Get to know your fellow crew members
+- Visit the Bar for social interactions
+- Check the computer terminal for stock market opportunities
+
+We hope you enjoy your stay and contribute to our thriving community!
+""",
+    "Station Map": """SPACE STATION EXPLORER - STATION MAP
+
+NORTH SECTION:
+- Bridge (Command Center)
+- North Hallway
+
+EAST SECTION:
+- Medical Bay
+- East Hallway
+- Bar
+
+NORTHEAST SECTION:
+- Security
+- Engineering Bay
+
+CENTRAL:
+- Personal Quarters
+- Hallway Junction
+
+Remember to use navigation panels to move between sections.
+""",
+    "Maintenance Manual": """SPACE STATION MAINTENANCE MANUAL
+
+BASIC TROUBLESHOOTING:
+1. Power cycling is the first solution to try for most electronic issues
+2. Check circuit breakers before reporting electrical failures
+3. Small air leaks can be temporarily patched with emergency sealant
+4. All maintenance tasks must be logged in the station computer
+
+EMERGENCY PROCEDURES:
+- Depressurization: Secure oxygen mask, move to nearest airlock
+- Fire: Use extinguisher, then evacuate section
+- Power failure: Emergency lighting will activate automatically
+
+Contact Engineering for all major repair needs.
+""",
+}
+
 class SpaceStationGame:
-    def __init__(self, root):
+    def __init__(self, root, base_path):
         self.root = root
         self.root.title("Space Station Explorer")
         self.root.geometry("800x600")
         self.root.configure(bg="black")
+        
+        # Store base path for file operations
+        self.base_path = base_path
         
         # Stock market background tracking
         self.companies = [
@@ -84,7 +141,7 @@ class SpaceStationGame:
             "5,0": {"name": "North End", "desc": "The northern end of the hallway. The bridge is nearby."},
             "0,1": {"name": "East Hallway", "desc": "A long hallway stretching east."},
             "0,2": {"name": "East Hallway", "desc": "A long hallway stretching east."},
-            "0,3": {"name": "East Hallway", "desc": "A long hallway stretching east."},
+            "0,3": {"name": "Bar Entrance", "desc": "This hallway leads to the station Bar. Soft music can be heard from inside."},
             "0,4": {"name": "East Hallway", "desc": "A long hallway stretching east."},
             "0,5": {"name": "East End", "desc": "The eastern end of the hallway. The medbay is nearby."},
             
@@ -105,7 +162,8 @@ class SpaceStationGame:
             "6,0": {"name": "Bridge", "desc": "The control center of the station. The door is unlocked.", "locked": False},
             "0,6": {"name": "MedBay", "desc": "The medical facility of the station. The door is unlocked.", "locked": False},
             "6,6": {"name": "Security", "desc": "The security center of the station. The door is unlocked.", "locked": False},
-            "6,3": {"name": "Engineering Bay", "desc": "The station's engineering and maintenance center. The door is unlocked.", "locked": False}
+            "6,3": {"name": "Engineering Bay", "desc": "The station's engineering and maintenance center. The door is unlocked.", "locked": False},
+            "0,-1": {"name": "Bar", "desc": "The station's social hub where crew members can relax and enjoy drinks. The door is unlocked.", "locked": False}
         }
         
         # Bind the window close event to stop the market thread
@@ -342,7 +400,7 @@ class SpaceStationGame:
         self.job_var = tk.StringVar(value="Staff Assistant")
         
         # Updated jobs list with new roles
-        jobs = ["Staff Assistant", "Engineer", "Security Guard", "Doctor", "Captain"]
+        jobs = ["Staff Assistant", "Engineer", "Security Guard", "Doctor", "Captain", "Bartender"]
         job_menu = tk.OptionMenu(form_frame, self.job_var, *jobs, command=self.update_job_information)
         job_menu.config(font=("Arial", 14), width=20)
         job_menu.grid(row=1, column=1, pady=10)
@@ -397,6 +455,9 @@ class SpaceStationGame:
         elif job == "Captain":
             credits = 10000
             description = "The Captain is the highest authority on the station. They make critical decisions and coordinate all departments. Starting with 10000 credits and access to all station areas."
+        elif job == "Bartender":
+            credits = 3500
+            description = "Bartenders run the station's social hub, mixing drinks and providing a place for crew members to relax. They have deep knowledge of beverages and excellent social skills. Starting with 3500 credits and access to the Bar Station."
         else:
             credits = 1000  # Default
             description = "Select a job to see its description."
@@ -434,6 +495,8 @@ class SpaceStationGame:
             self.player_data["credits"] = 7500
         elif job == "Captain":
             self.player_data["credits"] = 10000
+        elif job == "Bartender":
+            self.player_data["credits"] = 3500
         else:
             self.player_data["credits"] = 1000  # Default for Staff Assistant
             
@@ -444,7 +507,8 @@ class SpaceStationGame:
                 "security_station": True,
                 "medbay_station": True,
                 "bridge_station": True,
-                "engineering_station": True
+                "engineering_station": True,
+                "bar_station": True
             }
         else:
             # Other jobs have specific access
@@ -452,7 +516,8 @@ class SpaceStationGame:
                 "security_station": job == "Security Guard",
                 "medbay_station": job == "Doctor",
                 "bridge_station": job == "Captain",
-                "engineering_station": job == "Engineer"
+                "engineering_station": job == "Engineer",
+                "bar_station": job == "Bartender"
             }
         
         # Create or save character file 
@@ -464,11 +529,11 @@ class SpaceStationGame:
         self.update_market_data()
         
         # Create saves directory if it doesn't exist
-        if not os.path.exists("game/saves"):
-            os.makedirs("game/saves")
+        saves_path = os.path.join(self.base_path, "saves")
+        os.makedirs(saves_path, exist_ok=True)
         
         # Save game to JSON file
-        filename = f"game/saves/{self.player_data['name']}.json"
+        filename = os.path.join(saves_path, f"{self.player_data['name']}.json")
         with open(filename, "w") as f:
             json.dump(self.player_data, f, indent=4)
         
@@ -737,7 +802,7 @@ class SpaceStationGame:
         """Show a popup window with the player's inventory"""
         popup = tk.Toplevel(self.root)
         popup.title("Inventory")
-        popup.geometry("400x400")
+        popup.geometry("400x500")  # Made taller to accommodate the read button
         popup.configure(bg="black")
         
         # Ensure this window stays on top
@@ -747,7 +812,7 @@ class SpaceStationGame:
         # Center the popup window
         popup.update_idletasks()
         width = 400
-        height = 400
+        height = 500
         x = (popup.winfo_screenwidth() // 2) - (width // 2)
         y = (popup.winfo_screenheight() // 2) - (height // 2)
         popup.geometry(f"{width}x{height}+{x}+{y}")
@@ -777,8 +842,84 @@ class SpaceStationGame:
             for item in self.player_data['inventory']:
                 inventory_list.insert(tk.END, item)
         
+        # Button frame for actions
+        button_frame = tk.Frame(popup, bg="black")
+        button_frame.pack(pady=10)
+        
+        # Read button (only enabled when a readable item is selected)
+        read_btn = tk.Button(button_frame, text="Read Item", font=("Arial", 12), width=10, 
+                         command=lambda: self.read_book(inventory_list, popup),
+                         state=tk.DISABLED)
+        read_btn.pack(side=tk.LEFT, padx=5)
+        
         # Close button
-        close_btn = tk.Button(popup, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
+        close_btn = tk.Button(button_frame, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
+        close_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Check if selection is a readable item
+        def check_selection(event):
+            selection = inventory_list.curselection()
+            if selection and inventory_list.get(selection[0]) in BOOK_CONTENTS:
+                read_btn.config(state=tk.NORMAL)
+            else:
+                read_btn.config(state=tk.DISABLED)
+        
+        # Bind to listbox selection
+        inventory_list.bind('<<ListboxSelect>>', check_selection)
+    
+    def read_book(self, inventory_list, parent_popup):
+        """Display the contents of a readable item"""
+        selection = inventory_list.curselection()
+        if not selection:
+            return
+        
+        item_name = inventory_list.get(selection[0])
+        if item_name not in BOOK_CONTENTS:
+            return
+        
+        # Create a new window for reading
+        read_popup = tk.Toplevel(parent_popup)
+        read_popup.title(f"Reading: {item_name}")
+        read_popup.geometry("600x500")
+        read_popup.configure(bg="black")
+        read_popup.transient(parent_popup)
+        read_popup.grab_set()
+        
+        # Center the popup
+        read_popup.update_idletasks()
+        width = 600
+        height = 500
+        x = (read_popup.winfo_screenwidth() // 2) - (width // 2)
+        y = (read_popup.winfo_screenheight() // 2) - (height // 2)
+        read_popup.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Title
+        title_label = tk.Label(read_popup, text=item_name, font=("Arial", 18), bg="black", fg="white")
+        title_label.pack(pady=10)
+        
+        # Text content frame
+        content_frame = tk.Frame(read_popup, bg="black")
+        content_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Add scrollbar for text
+        content_scrollbar = tk.Scrollbar(content_frame)
+        content_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Text widget for content
+        content_text = tk.Text(content_frame, bg="black", fg="white", font=("Arial", 12),
+                             wrap=tk.WORD, yscrollcommand=content_scrollbar.set)
+        content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        content_scrollbar.config(command=content_text.yview)
+        
+        # Insert book content
+        content_text.insert(tk.END, BOOK_CONTENTS[item_name])
+        content_text.config(state=tk.DISABLED)  # Make read-only
+        
+        # Add note that player read the book
+        self.add_note(f"Read the {item_name}.")
+        
+        # Close button
+        close_btn = tk.Button(read_popup, text="Close", font=("Arial", 12), width=10, command=read_popup.destroy)
         close_btn.pack(pady=10)
     
     def show_holdings_popup(self):
@@ -880,11 +1021,11 @@ class SpaceStationGame:
         self.update_market_data()
         
         # Create saves directory if it doesn't exist
-        if not os.path.exists("game/saves"):
-            os.makedirs("game/saves")
+        saves_path = os.path.join(self.base_path, "saves")
+        os.makedirs(saves_path, exist_ok=True)
         
         # Save game to JSON file
-        filename = f"game/saves/{self.player_data['name']}.json"
+        filename = os.path.join(saves_path, f"{self.player_data['name']}.json")
         with open(filename, "w") as f:
             json.dump(self.player_data, f, indent=4)
         
@@ -912,7 +1053,7 @@ class SpaceStationGame:
         inventory_frame = tk.LabelFrame(main_container, text="Your Inventory", font=("Arial", 14), bg="black", fg="white", bd=2)
         inventory_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        # Locker items data
+        # Locker items data - ensure all readable books are included
         locker_items = [
             {"name": "Welcome Guide", "description": "A guide for new station personnel"},
             {"name": "Flashlight", "description": "A standard issue flashlight"},
@@ -1267,6 +1408,23 @@ class SpaceStationGame:
                                command=lambda: self.move_direction("east"))
             east_btn.grid(row=1, column=2, padx=10, pady=10)
         
+        # Bar access from bar entrance
+        elif x == 0 and y == 3:
+            is_special_location = True
+            # Add Bar access button
+            bar_btn = tk.Button(nav_frame, text="Bar", font=("Arial", 14), width=15,
+                             command=lambda: self.enter_special_room_at("Bar", "0,-1"))
+            bar_btn.grid(row=0, column=1, padx=10, pady=10)
+            
+            # Add west and east buttons for the corridors
+            west_btn = tk.Button(nav_frame, text="Go West", font=("Arial", 14), width=15,
+                               command=lambda: self.move_direction("west"))
+            west_btn.grid(row=1, column=0, padx=10, pady=10)
+            
+            east_btn = tk.Button(nav_frame, text="Go East", font=("Arial", 14), width=15,
+                               command=lambda: self.move_direction("east"))
+            east_btn.grid(row=1, column=2, padx=10, pady=10)
+        
         # Regular directional buttons for other hallway positions
         if not is_special_location:
             if north_available:
@@ -1442,11 +1600,11 @@ class SpaceStationGame:
         load_label.pack(pady=30)
         
         # Check if saves directory exists
-        if not os.path.exists("game/saves"):
-            os.makedirs("game/saves")
+        saves_path = os.path.join(self.base_path, "saves")
+        os.makedirs(saves_path, exist_ok=True)
         
         # Get save files
-        save_files = [f for f in os.listdir("game/saves") if f.endswith(".json")]
+        save_files = [f for f in os.listdir(saves_path) if f.endswith(".json")]
         
         if not save_files:
             no_saves_label = tk.Label(self.root, text="No saved games found.", font=("Arial", 14), bg="black", fg="white")
@@ -1469,7 +1627,8 @@ class SpaceStationGame:
     
     def load_game(self, save_file):
         try:
-            with open(f"game/saves/{save_file}", "r") as f:
+            saves_path = os.path.join(self.base_path, "saves")
+            with open(os.path.join(saves_path, save_file), "r") as f:
                 self.player_data = json.load(f)
             
             # Load market data
@@ -1505,6 +1664,14 @@ class SpaceStationGame:
         # Security entrance (6,6) -> return to Northeast Corner (5,5)
         if x == 6 and y == 6:
             return 5, 5
+            
+        # Engineering Bay entrance (6,3) -> return to Engineering Bay Entrance (5,3)
+        if x == 6 and y == 3:
+            return 5, 3
+            
+        # Bar entrance (0,-1) -> return to Bar Entrance (0,3)
+        if x == 0 and y == -1:
+            return 0, 3
         
         # Default to junction if something goes wrong
         return 0, 0
@@ -1512,7 +1679,7 @@ class SpaceStationGame:
     def enter_special_room(self, room_name):
         """Enter a special room on the station"""
         # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security, Engineering
+        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar
         from game.quarters import Quarters
         
         # Add the ship_map to player_data for special rooms to access
@@ -1530,6 +1697,9 @@ class SpaceStationGame:
         elif room_name == "Engineering":
             # Open Engineering Bay
             engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Bar":
+            # Open Bar
+            bar = Bar(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Quarters":
             # Return to quarters
             quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
@@ -1545,10 +1715,14 @@ class SpaceStationGame:
         y = self.player_data["location"]["y"]
         
         # If we're in a special room, move back to the previous position
-        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3):
+        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3) or (x == 0 and y == -1):
             # For Engineering Bay specifically, return to the hallway entrance
             if x == 6 and y == 3:
                 self.player_data["location"]["x"] = 5
+                self.player_data["location"]["y"] = 3
+            # For Bar specifically, return to the hallway entrance
+            elif x == 0 and y == -1:
+                self.player_data["location"]["x"] = 0
                 self.player_data["location"]["y"] = 3
             else:
                 prev_x, prev_y = self.get_previous_position()
@@ -1574,12 +1748,20 @@ class SpaceStationGame:
         special_rooms = {
             "5,0": "Bridge",     # Adjacent to Bridge
             "0,5": "MedBay",     # Adjacent to MedBay
-            "5,5": "Security"    # Adjacent to Security
+            "5,5": "Security",   # Adjacent to Security
+            "5,3": "Engineering", # Adjacent to Engineering
+            "0,3": "Bar"         # Adjacent to Bar
         }
         
         if location_key in special_rooms:
             room_name = special_rooms[location_key]
-            room_coords = {"Bridge": "6,0", "MedBay": "0,6", "Security": "6,6"}
+            room_coords = {
+                "Bridge": "6,0", 
+                "MedBay": "0,6", 
+                "Security": "6,6",
+                "Engineering": "6,3",
+                "Bar": "0,-1"
+            }
             room_key = room_coords[room_name]
             
             # Check if room is locked
@@ -1633,7 +1815,8 @@ class SpaceStationGame:
             "5,0": "Bridge",     # Adjacent to Bridge
             "0,5": "MedBay",     # Adjacent to MedBay
             "5,5": "Security",   # Adjacent to Security
-            "5,3": "Engineering" # Adjacent to Engineering Bay
+            "5,3": "Engineering", # Adjacent to Engineering Bay
+            "0,3": "Bar"         # Adjacent to Bar
         }
         
         # Check if we're near a special room and if that room is locked
@@ -1643,7 +1826,8 @@ class SpaceStationGame:
                 "Bridge": "6,0", 
                 "MedBay": "0,6", 
                 "Security": "6,6",
-                "Engineering": "6,3"
+                "Engineering": "6,3",
+                "Bar": "0,-1"
             }
             room_key = room_coords[room_name]
             
@@ -1671,7 +1855,7 @@ class SpaceStationGame:
         self.player_data["ship_map"] = self.ship_map
         
         # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security, Engineering
+        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar
         from game.quarters import Quarters
         
         # Open the appropriate room
@@ -1683,6 +1867,8 @@ class SpaceStationGame:
             security = Security(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Engineering":
             engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Bar":
+            bar = Bar(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Quarters":
             quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
 
@@ -1692,11 +1878,11 @@ class SpaceStationGame:
         self.update_market_data()
         
         # Create saves directory if it doesn't exist
-        if not os.path.exists("game/saves"):
-            os.makedirs("game/saves")
+        saves_path = os.path.join(self.base_path, "saves")
+        os.makedirs(saves_path, exist_ok=True)
         
         # Save game to JSON file
-        filename = f"game/saves/{self.player_data['name']}.json"
+        filename = os.path.join(saves_path, f"{self.player_data['name']}.json")
         with open(filename, "w") as f:
             json.dump(self.player_data, f, indent=4)
         
