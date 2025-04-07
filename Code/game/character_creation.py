@@ -117,7 +117,7 @@ class CharacterCreation:
         if job == "Engineer":
             description = "Engineers are responsible for keeping the station's critical systems operational. " + \
                          "They excel at repairing equipment and solving technical problems. " + \
-                         "Starting with 2500 credits."
+                         "Starting with 2500 credits and access to the Engineering Station."
         elif job == "Staff Assistant":
             description = "Staff Assistants are the backbone of daily station operations. " + \
                          "They handle various tasks as needed across the station. " + \
@@ -179,14 +179,16 @@ class CharacterCreation:
             self.player_data["permissions"] = {
                 "security_station": True,
                 "medbay_station": True,
-                "bridge_station": True
+                "bridge_station": True,
+                "engineering_station": True
             }
         else:
             # Other jobs have specific access
             self.player_data["permissions"] = {
                 "security_station": job == "Security Guard",
                 "medbay_station": job == "Doctor",
-                "bridge_station": job == "Captain"
+                "bridge_station": job == "Captain",
+                "engineering_station": job == "Engineer"
             }
         
         # Save the game right after character creation

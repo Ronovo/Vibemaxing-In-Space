@@ -1,18 +1,62 @@
-# Space Station Explorer
+# Space Station Explorer v6.0.0
 
-A simple menu-based space station exploring game built with Python and Tkinter.
+A text-based exploration game set on a space station, built with Python and Tkinter.
 
 ## Features
 
-- Main menu with New Game, Load Game, and Quit options
-- Character creation with name input and job selection
-- Exploration of your personal quarters with interactive objects
-- Inventory system with items to collect, view, and store
-- Character sheet displaying your stats and inventory
-- Complete station hallway navigation system with a full circuit layout
-- Continuously running stock market simulation that persists even when not viewing
-- Save/load game functionality using JSON files
-- Stock market mini-game where you can trade shares and earn credits
+### Core Gameplay
+- Explore a space station through a menu-driven interface
+- Navigate between different rooms and hallways
+- Interact with objects and NPCs in each location
+- Collect and manage inventory items
+- Save and load game progress
+- Random events while exploring hallways (20% chance)
+
+### Character System
+- Create a character with a custom name
+- Choose from 5 different jobs:
+  - Staff Assistant (1000 credits)
+  - Engineer (2500 credits, Engineering access)
+  - Security Guard (5000 credits, Security access)
+  - Doctor (7500 credits, MedBay access)
+  - Captain (10000 credits, full station access)
+- Job-specific access to specialized station areas
+- Limb health tracking (head, chest, arms, legs)
+- Character journal with timestamped notes of significant events
+
+### Special Rooms
+- **Quarters**: Personal living space with storage, bed, and computer
+- **MedBay**: Medical facility with health checks and treatment options
+- **Bridge**: Command center for station operations
+- **Security**: Monitoring and security systems
+- **Engineering Bay**: Maintenance center with tools and equipment
+
+### Stock Market
+- Real-time stock market simulation
+- Buy and sell shares in various companies
+- Track market cycles and trade history
+- Make profits through smart trading
+- Transaction logging with profit/loss tracking
+
+### Advanced Features
+- Role-based access control to specialized station systems
+- Door locking/unlocking for authorized personnel
+- Cycle-based trade logging in stock market
+- Circuit-based station navigation system
+- Random event system (good, bad, and neutral outcomes)
+- Limb damage and medical treatment system
+- Scrollable storage interface with expanded inventory options
+- Character notes system tracking important events
+
+## Controls
+- Use buttons and menus to navigate and interact
+- Character-specific controls appear based on your job
+- Save your game by using your bed or the Save button
+
+## Getting Started
+1. Run `python run_game.py`
+2. Create a new character or load an existing one
+3. Explore the station and discover its secrets
 
 ## Requirements
 
@@ -49,10 +93,12 @@ python game/main.py
    - Take items from the storage locker
    - View your inventory from the character sheet
    - Return items to the storage locker
+   - Find random items while exploring hallways
 5. Explore the space station:
    - Navigate through hallways in cardinal directions (North, South, East, West)
    - The station has a complete circuit layout you can walk around
    - Access your quarters from the hallway junction at coordinates (0,0)
+   - Random events may occur while moving through hallways
 6. Use the computer to access the Stock Market:
    - The stock market runs continuously in the background
    - Stock prices update automatically every 60 seconds
@@ -61,8 +107,17 @@ python game/main.py
    - View price history graphs
    - Earn credits through successful trading
    - Your portfolio and profits are saved when you exit
-7. Save your game progress at any time using the "Save and Exit" button
-8. Load your saved game from the main menu
+7. Monitor and manage your character's health:
+   - Check your limb health status on the character sheet
+   - Receive medical treatment in the MedBay
+   - Pay for healing services (50 credits)
+   - Special healing options for authorized medical personnel
+8. Track your character's journey:
+   - View notes about important events
+   - See records of injuries, financial transactions, and discoveries
+   - Timestamped entries in reverse chronological order
+9. Save your game progress at any time using the "Save and Exit" button
+10. Load your saved game from the main menu
 
 ## Station Layout
 
@@ -72,9 +127,31 @@ The space station has a complete circuit layout that you can navigate around:
 - The East hallway runs from (0,0) to (0,5)
 - From the North end (5,0), you can go East to follow the upper corridor
 - From the East end (0,5), you can go North to follow the right corridor
+- The Engineering Bay is accessible from coordinates (5,3)
 - The far corner at (5,5) connects the upper and right corridors
 - You can navigate around the entire circuit in either direction
 - Your current coordinates are displayed as (North, East)
+
+## Special Room Access
+
+Each job comes with different room access permissions:
+- **Staff Assistant**: No special access
+- **Engineer**: Engineering Bay access
+- **Security Guard**: Security access
+- **Doctor**: MedBay access
+- **Captain**: Full access to all rooms
+
+Locked doors can only be opened by personnel with proper authorization.
+
+## Medical System
+
+The game features a comprehensive health system:
+- Each character has 6 limbs with individual health percentages
+- Injuries can occur during random events in hallways
+- Medical scans show detailed health reports with recommendations
+- Doctors can provide advanced treatment in the MedBay
+- Anyone can pay 50 credits for medical services
+- Doors can be locked/unlocked by authorized personnel
 
 ## Stock Market Features
 
@@ -86,11 +163,15 @@ The stock market system has the following features:
 - Stock prices fluctuate based on realistic market conditions
 - Portfolio of owned shares persists through saves and loads
 - Gains and losses are automatically reflected in your credits
+- Transactions are logged in your character notes
 
-## Note
+## Future Updates
 
-This is a text/menu-based game with a simple interface. Future updates may include:
+Planned features for future versions:
 - More areas to explore
 - Additional items and interactions
 - Character stats and progression
-- Mission system 
+- Mission system
+- Crafting system
+- NPC interactions and dialogue
+- Equipment and gear system 

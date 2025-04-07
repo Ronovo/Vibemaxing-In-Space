@@ -4,11 +4,11 @@ import os
 import time
 import threading
 import datetime
+import random
 from tkinter import messagebox
 from tkinter import simpledialog
 
 # Add the stock market imports
-import random
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -61,10 +61,19 @@ class SpaceStationGame:
                 "companies": [],
                 "last_update_time": datetime.datetime.now().isoformat(),
                 "trade_log": []  # Add trade log to persist between sessions
-            }
+            },
+            "limbs": {
+                "left_arm": 100,
+                "right_arm": 100,
+                "left_leg": 100,
+                "right_leg": 100,
+                "chest": 100,
+                "head": 100
+            },
+            "notes": []  # Add notes array to track important events
         }
         
-        # Ship map configuration - Updated to include locked rooms
+        # Ship map configuration - Updated to include Engineering Bay
         self.ship_map = {
             # Hallway Junction and Main Hallways
             "0,0": {"name": "Hallway Junction", "desc": "A junction in the hallway. Your quarters are nearby."},
@@ -82,7 +91,7 @@ class SpaceStationGame:
             # Northeast Corridors
             "5,1": {"name": "Northeast Hallway", "desc": "A hallway connecting the north and east corridors."},
             "5,2": {"name": "Northeast Hallway", "desc": "A hallway connecting the north and east corridors."},
-            "5,3": {"name": "Northeast Hallway", "desc": "A hallway connecting the north and east corridors."},
+            "5,3": {"name": "Engineering Bay Entrance", "desc": "This hallway leads to the Engineering Bay."},
             "5,4": {"name": "Northeast Hallway", "desc": "A hallway connecting the north and east corridors."},
             "5,5": {"name": "Northeast Corner", "desc": "The far corner of the station. Security is nearby."},
             
@@ -95,7 +104,8 @@ class SpaceStationGame:
             # Special Rooms (Locked)
             "6,0": {"name": "Bridge", "desc": "The control center of the station. The door is unlocked.", "locked": False},
             "0,6": {"name": "MedBay", "desc": "The medical facility of the station. The door is unlocked.", "locked": False},
-            "6,6": {"name": "Security", "desc": "The security center of the station. The door is unlocked.", "locked": False}
+            "6,6": {"name": "Security", "desc": "The security center of the station. The door is unlocked.", "locked": False},
+            "6,3": {"name": "Engineering Bay", "desc": "The station's engineering and maintenance center. The door is unlocked.", "locked": False}
         }
         
         # Bind the window close event to stop the market thread
@@ -377,7 +387,7 @@ class SpaceStationGame:
             description = "Staff Assistants are the backbone of daily station operations. They handle various tasks as needed across the station. Starting with 1000 credits."
         elif job == "Engineer":
             credits = 2500
-            description = "Engineers are responsible for keeping the station's critical systems operational. They excel at repairing equipment and solving technical problems. Starting with 2500 credits."
+            description = "Engineers are responsible for keeping the station's critical systems operational. They excel at repairing equipment and solving technical problems. Starting with 2500 credits and access to the Engineering Station."
         elif job == "Security Guard":
             credits = 5000
             description = "Security Guards maintain order and protect the station from threats. They have access to security systems and equipment. Starting with 5000 credits and access to the Security Station."
@@ -433,14 +443,16 @@ class SpaceStationGame:
             self.player_data["permissions"] = {
                 "security_station": True,
                 "medbay_station": True,
-                "bridge_station": True
+                "bridge_station": True,
+                "engineering_station": True
             }
         else:
             # Other jobs have specific access
             self.player_data["permissions"] = {
                 "security_station": job == "Security Guard",
                 "medbay_station": job == "Doctor",
-                "bridge_station": job == "Captain"
+                "bridge_station": job == "Captain",
+                "engineering_station": job == "Engineer"
             }
         
         # Create or save character file 
@@ -524,57 +536,298 @@ class SpaceStationGame:
         save_btn.pack()
     
     def show_character_sheet(self):
+        """Show the character sheet window"""
         # Clear the window
         for widget in self.root.winfo_children():
             widget.destroy()
         
         # Title
-        char_label = tk.Label(self.root, text="Character Sheet", font=("Arial", 24), bg="black", fg="white")
-        char_label.pack(pady=30)
+        title_label = tk.Label(self.root, text="Character Sheet", font=("Arial", 24), bg="black", fg="white")
+        title_label.pack(pady=20)
         
-        # Character info frame
+        # Character info
         info_frame = tk.Frame(self.root, bg="black")
-        info_frame.pack(pady=20, fill=tk.X, padx=50)
+        info_frame.pack(pady=10)
         
-        # Name
-        name_label = tk.Label(info_frame, text="Name:", font=("Arial", 14, "bold"), bg="black", fg="white")
-        name_label.grid(row=0, column=0, sticky="w", pady=5)
-        name_value = tk.Label(info_frame, text=self.player_data["name"], font=("Arial", 14), bg="black", fg="white")
-        name_value.grid(row=0, column=1, sticky="w", pady=5)
+        # Name and job
+        name_label = tk.Label(info_frame, text=f"Name: {self.player_data['name']}", font=("Arial", 14), bg="black", fg="white")
+        name_label.pack(anchor="w", padx=10, pady=5)
         
-        # Job
-        job_label = tk.Label(info_frame, text="Job:", font=("Arial", 14, "bold"), bg="black", fg="white")
-        job_label.grid(row=1, column=0, sticky="w", pady=5)
-        job_value = tk.Label(info_frame, text=self.player_data["job"], font=("Arial", 14), bg="black", fg="white")
-        job_value.grid(row=1, column=1, sticky="w", pady=5)
+        job_label = tk.Label(info_frame, text=f"Job: {self.player_data['job']}", font=("Arial", 14), bg="black", fg="white")
+        job_label.pack(anchor="w", padx=10, pady=5)
         
         # Credits
-        credits_label = tk.Label(info_frame, text="Credits:", font=("Arial", 14, "bold"), bg="black", fg="white")
-        credits_label.grid(row=2, column=0, sticky="w", pady=5)
-        credits_value = tk.Label(info_frame, text=f"{self.player_data['credits']:.2f}", font=("Arial", 14), bg="black", fg="white")
-        credits_value.grid(row=2, column=1, sticky="w", pady=5)
+        credits_label = tk.Label(info_frame, text=f"Credits: {self.player_data['credits']}", font=("Arial", 14), bg="black", fg="white")
+        credits_label.pack(anchor="w", padx=10, pady=5)
         
-        # Inventory
-        inv_label = tk.Label(self.root, text="Inventory", font=("Arial", 18, "bold"), bg="black", fg="white")
-        inv_label.pack(pady=(20, 10))
+        # Buttons for inventory, stock holdings, and notes
+        button_frame = tk.Frame(info_frame, bg="black")
+        button_frame.pack(anchor="w", padx=10, pady=5, fill=tk.X)
         
-        inv_frame = tk.Frame(self.root, bg="black")
-        inv_frame.pack(pady=10, fill=tk.BOTH, expand=True, padx=50)
+        # Inventory button
+        inv_count = len(self.player_data.get('inventory', []))
+        inv_btn = tk.Button(button_frame, text=f"View Inventory ({inv_count} items)", 
+                          font=("Arial", 12), width=20, command=self.show_inventory_popup)
+        inv_btn.pack(side=tk.LEFT, padx=5, pady=5)
         
-        if not self.player_data["inventory"]:
-            empty_label = tk.Label(inv_frame, text="Your inventory is empty.", font=("Arial", 14), bg="black", fg="white")
-            empty_label.pack(pady=10)
-        else:
-            for i, item in enumerate(self.player_data["inventory"]):
-                item_frame = tk.Frame(inv_frame, bg="dark gray", bd=2, relief=tk.RAISED)
-                item_frame.pack(fill=tk.X, pady=5)
+        # Stock holdings button
+        holdings_count = len(self.player_data.get('stock_holdings', {}))
+        stock_btn = tk.Button(button_frame, text=f"View Stock Holdings ({holdings_count})", 
+                            font=("Arial", 12), width=20, command=self.show_holdings_popup)
+        stock_btn.pack(side=tk.LEFT, padx=5, pady=5)
+        
+        # Notes button
+        notes_count = len(self.player_data.get('notes', []))
+        notes_btn = tk.Button(button_frame, text=f"View Notes ({notes_count})", 
+                            font=("Arial", 12), width=15, command=self.show_notes_popup)
+        notes_btn.pack(side=tk.LEFT, padx=5, pady=5)
+        
+        # Limb health - horizontal layout
+        limb_label = tk.Label(info_frame, text="Limb Health:", font=("Arial", 14), bg="black", fg="white")
+        limb_label.pack(anchor="w", padx=10, pady=5)
+        
+        # Create a frame for the horizontal limb health display
+        limb_frame = tk.Frame(info_frame, bg="black")
+        limb_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        # Create a 2x3 grid for the 6 limbs
+        row1_frame = tk.Frame(limb_frame, bg="black")
+        row1_frame.pack(fill=tk.X, pady=2)
+        
+        row2_frame = tk.Frame(limb_frame, bg="black")
+        row2_frame.pack(fill=tk.X, pady=2)
+        
+        # Sort limbs into logical order
+        limb_order = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
+        
+        # First row: Head, Chest, Left Arm
+        for i, limb_name in enumerate(limb_order[:3]):
+            if limb_name in self.player_data['limbs']:
+                health = self.player_data['limbs'][limb_name]
+                display_name = limb_name.replace('_', ' ').title()
                 
-                item_name = tk.Label(item_frame, text=item, font=("Arial", 12), bg="dark gray")
-                item_name.pack(side=tk.LEFT, anchor="w", padx=10, pady=5)
+                # Change color based on health
+                color = "green" if health > 75 else "yellow" if health > 40 else "red"
+                
+                limb_frame = tk.Frame(row1_frame, bg="black", width=200)
+                limb_frame.pack(side=tk.LEFT, padx=10, expand=True)
+                
+                limb_health_label = tk.Label(limb_frame, text=f"{display_name}: {health}%", 
+                                         font=("Arial", 12), bg="black", fg=color)
+                limb_health_label.pack(side=tk.LEFT)
         
-        # Back button
-        back_btn = tk.Button(self.root, text="Back", font=("Arial", 14), width=15, command=self.show_room)
-        back_btn.pack(pady=20)
+        # Second row: Right Arm, Left Leg, Right Leg
+        for i, limb_name in enumerate(limb_order[3:]):
+            if limb_name in self.player_data['limbs']:
+                health = self.player_data['limbs'][limb_name]
+                display_name = limb_name.replace('_', ' ').title()
+                
+                # Change color based on health
+                color = "green" if health > 75 else "yellow" if health > 40 else "red"
+                
+                limb_frame = tk.Frame(row2_frame, bg="black", width=200)
+                limb_frame.pack(side=tk.LEFT, padx=10, expand=True)
+                
+                limb_health_label = tk.Label(limb_frame, text=f"{display_name}: {health}%", 
+                                         font=("Arial", 12), bg="black", fg=color)
+                limb_health_label.pack(side=tk.LEFT)
+        
+        # Store the previous screen to return to
+        self.previous_screen = getattr(self, 'previous_screen', 'show_room')
+        
+        # Return button that goes back to the previous screen
+        return_btn = tk.Button(self.root, text="Return", font=("Arial", 14), width=15, 
+                             command=lambda: getattr(self, self.previous_screen)())
+        return_btn.pack(pady=20)
+    
+    def show_notes_popup(self):
+        """Show a popup window with the player's notes"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Character Notes")
+        popup.geometry("600x500")
+        popup.configure(bg="black")
+        
+        # Ensure this window stays on top
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup window
+        popup.update_idletasks()
+        width = 600
+        height = 500
+        x = (popup.winfo_screenwidth() // 2) - (width // 2)
+        y = (popup.winfo_screenheight() // 2) - (height // 2)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Title
+        title_label = tk.Label(popup, text="Character Notes", font=("Arial", 18), bg="black", fg="white")
+        title_label.pack(pady=10)
+        
+        # Create a frame for the scrollable notes
+        frame = tk.Frame(popup, bg="black")
+        frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Add a scrollbar
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create a text widget for notes
+        notes_text = tk.Text(frame, bg="black", fg="white", font=("Arial", 12),
+                           width=60, height=20, yscrollcommand=scrollbar.set, wrap=tk.WORD)
+        notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=notes_text.yview)
+        
+        # Disable editing
+        notes_text.config(state=tk.DISABLED)
+        
+        # Load notes
+        if "notes" in self.player_data and self.player_data["notes"]:
+            # Re-enable text widget temporarily to insert text
+            notes_text.config(state=tk.NORMAL)
+            
+            # Insert notes in reverse order (newest first)
+            for note in reversed(self.player_data["notes"]):
+                # Format the note
+                if "timestamp" in note and "text" in note:
+                    timestamp = note["timestamp"]
+                    text = note["text"]
+                    
+                    # Format the timestamp for display
+                    try:
+                        # Parse ISO format timestamp
+                        dt = datetime.datetime.fromisoformat(timestamp)
+                        formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+                    except (ValueError, TypeError):
+                        # If timestamp format is invalid, use it as is
+                        formatted_time = timestamp
+                    
+                    # Insert the formatted note
+                    notes_text.insert(tk.END, f"{formatted_time}:\n{text}\n\n")
+                else:
+                    # If note doesn't have proper structure, just insert the text
+                    notes_text.insert(tk.END, f"{str(note)}\n\n")
+            
+            # Disable editing again
+            notes_text.config(state=tk.DISABLED)
+        else:
+            # If no notes, show a message
+            notes_text.config(state=tk.NORMAL)
+            notes_text.insert(tk.END, "No notes recorded yet.")
+            notes_text.config(state=tk.DISABLED)
+        
+        # Close button
+        close_btn = tk.Button(popup, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
+        close_btn.pack(pady=10)
+    
+    def add_note(self, text):
+        """Add a note to the player's notes"""
+        if "notes" not in self.player_data:
+            self.player_data["notes"] = []
+        
+        # Create a new note with timestamp
+        note = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "text": text
+        }
+        
+        # Add the note to the player's notes
+        self.player_data["notes"].append(note)
+    
+    def show_inventory_popup(self):
+        """Show a popup window with the player's inventory"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Inventory")
+        popup.geometry("400x400")
+        popup.configure(bg="black")
+        
+        # Ensure this window stays on top
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup window
+        popup.update_idletasks()
+        width = 400
+        height = 400
+        x = (popup.winfo_screenwidth() // 2) - (width // 2)
+        y = (popup.winfo_screenheight() // 2) - (height // 2)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Title
+        title_label = tk.Label(popup, text="Inventory", font=("Arial", 18), bg="black", fg="white")
+        title_label.pack(pady=10)
+        
+        # Create a frame for the scrollable inventory
+        frame = tk.Frame(popup, bg="black")
+        frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Add a scrollbar
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create a listbox for inventory items
+        inventory_list = tk.Listbox(frame, bg="black", fg="white", font=("Arial", 12),
+                                  width=30, height=15, yscrollcommand=scrollbar.set)
+        inventory_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=inventory_list.yview)
+        
+        # Add items to the listbox
+        if not self.player_data.get('inventory', []):
+            inventory_list.insert(tk.END, "Your inventory is empty.")
+        else:
+            for item in self.player_data['inventory']:
+                inventory_list.insert(tk.END, item)
+        
+        # Close button
+        close_btn = tk.Button(popup, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
+        close_btn.pack(pady=10)
+    
+    def show_holdings_popup(self):
+        """Show a popup window with the player's stock holdings"""
+        popup = tk.Toplevel(self.root)
+        popup.title("Stock Holdings")
+        popup.geometry("400x400")
+        popup.configure(bg="black")
+        
+        # Ensure this window stays on top
+        popup.transient(self.root)
+        popup.grab_set()
+        
+        # Center the popup window
+        popup.update_idletasks()
+        width = 400
+        height = 400
+        x = (popup.winfo_screenwidth() // 2) - (width // 2)
+        y = (popup.winfo_screenheight() // 2) - (height // 2)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+        
+        # Title
+        title_label = tk.Label(popup, text="Stock Holdings", font=("Arial", 18), bg="black", fg="white")
+        title_label.pack(pady=10)
+        
+        # Create a frame for the scrollable holdings list
+        frame = tk.Frame(popup, bg="black")
+        frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Add a scrollbar
+        scrollbar = tk.Scrollbar(frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create a listbox for holdings
+        holdings_list = tk.Listbox(frame, bg="black", fg="white", font=("Arial", 12),
+                                 width=30, height=15, yscrollcommand=scrollbar.set)
+        holdings_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.config(command=holdings_list.yview)
+        
+        # Add holdings to the listbox
+        if not self.player_data.get('stock_holdings', {}):
+            holdings_list.insert(tk.END, "You don't own any company stocks.")
+        else:
+            for company, shares in self.player_data['stock_holdings'].items():
+                holdings_list.insert(tk.END, f"{company}: {shares} shares")
+        
+        # Close button
+        close_btn = tk.Button(popup, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
+        close_btn.pack(pady=10)
     
     def interact_bed(self):
         # Create a new top-level window for save dialog
@@ -645,61 +898,126 @@ class SpaceStationGame:
         
         # Title
         storage_label = tk.Label(self.root, text="Storage Locker", font=("Arial", 24), bg="black", fg="white")
-        storage_label.pack(pady=30)
+        storage_label.pack(pady=20)
         
-        # Items
-        items_frame = tk.Frame(self.root, bg="black")
-        items_frame.pack(pady=20)
+        # Container for locker and inventory sections
+        main_container = tk.Frame(self.root, bg="black")
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
+        # Left frame for locker items
+        locker_frame = tk.LabelFrame(main_container, text="Locker Items", font=("Arial", 14), bg="black", fg="white", bd=2)
+        locker_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # Right frame for player inventory
+        inventory_frame = tk.LabelFrame(main_container, text="Your Inventory", font=("Arial", 14), bg="black", fg="white", bd=2)
+        inventory_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=5)
+        
+        # Locker items data
         locker_items = [
             {"name": "Welcome Guide", "description": "A guide for new station personnel"},
             {"name": "Flashlight", "description": "A standard issue flashlight"},
-            {"name": "Station Map", "description": "A digital map of the station"}
+            {"name": "Station Map", "description": "A digital map of the station"},
+            {"name": "Emergency Rations", "description": "Standard emergency food supply"},
+            {"name": "Basic Tools", "description": "A set of basic maintenance tools"},
+            {"name": "ID Card Reader", "description": "Device to read crew ID cards"},
+            {"name": "Portable Scanner", "description": "Handheld scanner for analyzing objects"},
+            {"name": "Maintenance Manual", "description": "Guide for basic station repairs"},
+            {"name": "Emergency Beacon", "description": "Distress signal device for emergencies"},
+            {"name": "First Aid Kit", "description": "Basic medical supplies for minor injuries"}
         ]
         
         # Filter out items already in inventory
         filtered_items = [item for item in locker_items if item["name"] not in self.player_data["inventory"]]
         
+        # Create scrollable canvas for locker items
+        locker_canvas = tk.Canvas(locker_frame, bg="black", highlightthickness=0)
+        locker_scrollbar = tk.Scrollbar(locker_frame, orient="vertical", command=locker_canvas.yview)
+        
+        # Configure the canvas
+        locker_canvas.configure(yscrollcommand=locker_scrollbar.set)
+        locker_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        locker_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create a frame inside the canvas to hold the items
+        locker_items_frame = tk.Frame(locker_canvas, bg="black")
+        locker_canvas.create_window((0, 0), window=locker_items_frame, anchor="nw")
+        
+        # Populate locker items frame
         if not filtered_items:
-            empty_label = tk.Label(items_frame, text="The storage locker is empty.", font=("Arial", 14), bg="black", fg="white")
-            empty_label.pack(pady=10)
+            empty_label = tk.Label(locker_items_frame, text="The storage locker is empty.", font=("Arial", 12), bg="black", fg="white")
+            empty_label.pack(pady=10, padx=10, anchor="w")
         else:
             for i, item in enumerate(filtered_items):
-                item_frame = tk.Frame(items_frame, bg="dark gray", bd=2, relief=tk.RAISED)
-                item_frame.pack(fill=tk.X, padx=20, pady=5)
+                item_frame = tk.Frame(locker_items_frame, bg="dark gray", bd=2, relief=tk.RAISED, width=300)
+                item_frame.pack(fill=tk.X, pady=5, padx=5)
                 
-                item_name = tk.Label(item_frame, text=item["name"], font=("Arial", 12, "bold"), bg="dark gray")
-                item_name.pack(anchor="w", padx=10, pady=5)
+                # Item info
+                info_frame = tk.Frame(item_frame, bg="dark gray")
+                info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, anchor="w")
                 
-                item_desc = tk.Label(item_frame, text=item["description"], font=("Arial", 10), bg="dark gray")
-                item_desc.pack(anchor="w", padx=10, pady=2)
+                item_name = tk.Label(info_frame, text=item["name"], font=("Arial", 12, "bold"), bg="dark gray")
+                item_name.pack(anchor="w", padx=10, pady=(5, 0))
                 
-                take_btn = tk.Button(item_frame, text="Take", 
+                item_desc = tk.Label(info_frame, text=item["description"], font=("Arial", 10), bg="dark gray", wraplength=200)
+                item_desc.pack(anchor="w", padx=10, pady=(0, 5))
+                
+                # Take button on the right
+                button_frame = tk.Frame(item_frame, bg="dark gray")
+                button_frame.pack(side=tk.RIGHT, padx=10, pady=5)
+                
+                take_btn = tk.Button(button_frame, text="Take", font=("Arial", 10),
                                     command=lambda i=item["name"]: self.take_item(i))
-                take_btn.pack(anchor="e", padx=10, pady=5)
+                take_btn.pack()
         
-        # Player inventory section - for returning items to locker
-        if self.player_data["inventory"]:
-            inv_label = tk.Label(self.root, text="Your Inventory", font=("Arial", 18), bg="black", fg="white")
-            inv_label.pack(pady=(20, 10))
-            
-            inv_frame = tk.Frame(self.root, bg="black")
-            inv_frame.pack(pady=10)
-            
+        # Create scrollable canvas for inventory items
+        inventory_canvas = tk.Canvas(inventory_frame, bg="black", highlightthickness=0)
+        inventory_scrollbar = tk.Scrollbar(inventory_frame, orient="vertical", command=inventory_canvas.yview)
+        
+        # Configure the canvas
+        inventory_canvas.configure(yscrollcommand=inventory_scrollbar.set)
+        inventory_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        inventory_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create a frame inside the canvas to hold the items
+        inventory_items_frame = tk.Frame(inventory_canvas, bg="black")
+        inventory_canvas.create_window((0, 0), window=inventory_items_frame, anchor="nw")
+        
+        # Populate inventory items
+        if not self.player_data["inventory"]:
+            empty_label = tk.Label(inventory_items_frame, text="Your inventory is empty.", font=("Arial", 12), bg="black", fg="white")
+            empty_label.pack(pady=10, padx=10, anchor="w")
+        else:
             for i, item in enumerate(self.player_data["inventory"]):
-                item_frame = tk.Frame(inv_frame, bg="dark gray", bd=2, relief=tk.RAISED)
-                item_frame.pack(fill=tk.X, padx=20, pady=5)
+                item_frame = tk.Frame(inventory_items_frame, bg="dark gray", bd=2, relief=tk.RAISED, width=300)
+                item_frame.pack(fill=tk.X, pady=5, padx=5)
                 
-                item_name = tk.Label(item_frame, text=item, font=("Arial", 12, "bold"), bg="dark gray")
-                item_name.pack(side=tk.LEFT, padx=10, pady=5)
+                # Item info - just the name for inventory items
+                name_label = tk.Label(item_frame, text=item, font=("Arial", 12, "bold"), bg="dark gray")
+                name_label.pack(side=tk.LEFT, padx=10, pady=5, anchor="w")
                 
-                store_btn = tk.Button(item_frame, text="Store in Locker", 
-                                     command=lambda i=item: self.store_item(i))
+                # Store button on the right
+                store_btn = tk.Button(item_frame, text="Store in Locker", font=("Arial", 10),
+                                    command=lambda i=item: self.store_item(i))
                 store_btn.pack(side=tk.RIGHT, padx=10, pady=5)
+        
+        # Configure the canvas to scroll properly
+        locker_items_frame.update_idletasks()
+        locker_canvas.config(scrollregion=locker_canvas.bbox("all"))
+        
+        inventory_items_frame.update_idletasks()
+        inventory_canvas.config(scrollregion=inventory_canvas.bbox("all"))
+        
+        # Mouse wheel scrolling
+        locker_canvas.bind_all("<MouseWheel>", lambda event: self._on_mousewheel(event, locker_canvas))
+        inventory_canvas.bind_all("<MouseWheel>", lambda event: self._on_mousewheel(event, inventory_canvas))
         
         # Back button
         back_btn = tk.Button(self.root, text="Back to Room", font=("Arial", 14), width=15, command=self.show_room)
         back_btn.pack(pady=20)
+    
+    def _on_mousewheel(self, event, canvas):
+        """Handle mouse wheel scrolling"""
+        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def take_item(self, item_name):
         if item_name not in self.player_data["inventory"]:
@@ -745,6 +1063,24 @@ class SpaceStationGame:
     
     def update_player_data(self, updated_data):
         # Update player data when returning from stock market
+        
+        # Check if there were any stock transactions
+        if "stock_transactions" in updated_data:
+            transactions = updated_data.pop("stock_transactions")
+            
+            # Log notes for significant transactions
+            for transaction in transactions:
+                if transaction["type"] == "buy":
+                    self.add_note(f"Bought {transaction['shares']} shares of {transaction['company']} at {transaction['price']:.2f} cr/share (Total: {transaction['total']:.2f} cr)")
+                elif transaction["type"] == "sell":
+                    profit = transaction.get("profit", 0)
+                    if profit != 0:
+                        profit_text = f" (Profit: {profit:.2f} cr)" if profit > 0 else f" (Loss: {abs(profit):.2f} cr)"
+                    else:
+                        profit_text = ""
+                    
+                    self.add_note(f"Sold {transaction['shares']} shares of {transaction['company']} at {transaction['price']:.2f} cr/share (Total: {transaction['total']:.2f} cr){profit_text}")
+        
         self.player_data = updated_data
         
         # Update owned shares in the companies list
@@ -778,11 +1114,11 @@ class SpaceStationGame:
             self.player_data["location"] = {"x": 0, "y": 0}
             loc_key = "0,0"
         
-        location = self.ship_map[loc_key]
-        
         # Check if we're at a special room that can be entered
         if self.check_special_room():
             return
+        
+        location = self.ship_map[loc_key]
         
         # Check if room is locked
         if location.get("locked", False):
@@ -913,6 +1249,23 @@ class SpaceStationGame:
             south_btn = tk.Button(nav_frame, text="Go South", font=("Arial", 14), width=15,
                                 command=lambda: self.move_direction("south"))
             south_btn.grid(row=2, column=1, padx=10, pady=10)
+
+        # Engineering Bay access from engineering hallway
+        elif x == 5 and y == 3:
+            is_special_location = True
+            # Add Engineering Bay access button
+            eng_bay_btn = tk.Button(nav_frame, text="Engineering Bay", font=("Arial", 14), width=15,
+                                command=lambda: self.enter_special_room_at("Engineering", "6,3"))
+            eng_bay_btn.grid(row=0, column=1, padx=10, pady=10)
+            
+            # Add west and east buttons for the corridors
+            west_btn = tk.Button(nav_frame, text="Go West", font=("Arial", 14), width=15,
+                               command=lambda: self.move_direction("west"))
+            west_btn.grid(row=1, column=0, padx=10, pady=10)
+            
+            east_btn = tk.Button(nav_frame, text="Go East", font=("Arial", 14), width=15,
+                               command=lambda: self.move_direction("east"))
+            east_btn.grid(row=1, column=2, padx=10, pady=10)
         
         # Regular directional buttons for other hallway positions
         if not is_special_location:
@@ -953,15 +1306,14 @@ class SpaceStationGame:
         save_btn.pack(pady=10)
     
     def show_character_sheet_hallway(self):
-        # Show character sheet and then return to hallway instead of room
-        self.show_character_sheet()
+        # Set the previous screen to hallway before showing character sheet
+        self.previous_screen = "show_hallway"
         
-        # Override the back button functionality
-        for widget in self.root.winfo_children():
-            if isinstance(widget, tk.Button) and widget["text"] == "Back":
-                widget.config(command=self.show_hallway)
+        # Show character sheet
+        self.show_character_sheet()
     
     def move_direction(self, direction):
+        """Move in the specified direction with random event chance"""
         x = self.player_data["location"]["x"]
         y = self.player_data["location"]["y"]
         
@@ -989,38 +1341,96 @@ class SpaceStationGame:
                 # For the Security special case, jump directly to the security location
                 self.player_data["location"]["x"] = 6
                 self.player_data["location"]["y"] = 6
+            # Special case for Engineering Bay entrance
+            elif x == 5 and y == 3:
+                # This is handled by the check_special_room method
+                pass
             else:
                 # Otherwise, revert to previous location for invalid moves
                 messagebox.showerror("Error", "You can't go that way!")
                 self.player_data["location"]["x"] = x - (1 if direction == "north" else -1 if direction == "south" else 0)
                 self.player_data["location"]["y"] = y - (1 if direction == "east" else -1 if direction == "west" else 0)
         
+        # Random event check (40% chance) when moving through hallways
+        if random.random() < 0.20:  # Changed from 0.40 to 0.20 (20% chance)
+            self.trigger_random_event()
+        
         # Refresh hallway view
         self.show_hallway()
     
-    def move_to_security(self):
-        """Special handler for moving to Security room"""
-        # Set location directly to Security room coordinates
-        self.player_data["location"]["x"] = 6
-        self.player_data["location"]["y"] = 6
-        # Refresh hallway view
-        self.show_hallway()
+    def trigger_random_event(self):
+        """Trigger a random event"""
+        # List of possible events with good, bad, and neutral outcomes
+        events = [
+            # Good events
+            {"type": "good", "title": "Found Credits", "desc": "You found some credits on the floor!", "effect": lambda: self.add_credits(random.randint(50, 200))},
+            {"type": "good", "title": "Supply Crate", "desc": "You found an unsealed supply crate with useful items.", "effect": lambda: self.add_random_item()},
+            {"type": "good", "title": "Market Tip", "desc": "You overheard a reliable market tip.", "effect": lambda: self.add_market_knowledge()},
+            
+            # Neutral events
+            {"type": "neutral", "title": "Crew Member", "desc": "You passed by a crew member who nodded at you.", "effect": lambda: None},
+            {"type": "neutral", "title": "Announcement", "desc": "The station PA system makes an announcement.", "effect": lambda: self.station_announcement()},
+            {"type": "neutral", "title": "Maintenance", "desc": "A maintenance drone passes by, cleaning the hallway.", "effect": lambda: None},
+            
+            # Bad events
+            {"type": "bad", "title": "Lost Credits", "desc": "You dropped some credits and couldn't find them all.", "effect": lambda: self.lose_credits(random.randint(10, 50))},
+            {"type": "bad", "title": "Small Explosion", "desc": "A nearby conduit explodes, showering you with hot sparks!", "effect": lambda: self.damage_random_limb(10, 25)},
+            {"type": "bad", "title": "Slip and Fall", "desc": "You slipped on a wet floor and fell hard.", "effect": lambda: self.damage_random_limb(5, 15)},
+            {"type": "bad", "title": "Steam Leak", "desc": "A pipe bursts, releasing scalding steam that burns your arm!", "effect": lambda: self.damage_limb("left_arm", 10, 30)},
+            {"type": "bad", "title": "Falling Debris", "desc": "A ceiling panel breaks loose and hits your head!", "effect": lambda: self.damage_limb("head", 15, 35)},
+            {"type": "bad", "title": "Maintenance Accident", "desc": "Your leg gets caught in an open floor grate!", "effect": lambda: self.damage_limb("right_leg", 10, 20)}
+        ]
+        
+        # Pick a random event
+        event = random.choice(events)
+        
+        # Show the event
+        messagebox.showinfo(event["title"], event["desc"])
+        
+        # Apply the effect
+        event["effect"]()
     
-    def save_and_exit(self):
-        # Update market data before saving
-        self.update_market_data()
+    def damage_random_limb(self, min_damage, max_damage):
+        """Damage a random limb by a random amount"""
+        # Get a random limb
+        limb = random.choice(list(self.player_data["limbs"].keys()))
+        self.damage_limb(limb, min_damage, max_damage)
+    
+    def damage_limb(self, limb, min_damage, max_damage):
+        """Damage a specific limb by a random amount within range"""
+        if limb in self.player_data["limbs"]:
+            # Calculate damage
+            damage = random.randint(min_damage, max_damage)
+            
+            # Apply damage
+            original_health = self.player_data["limbs"][limb]
+            self.player_data["limbs"][limb] = max(0, original_health - damage)
+            
+            # Format the limb name for display
+            limb_name = limb.replace('_', ' ').title()
+            
+            # Show damage message
+            messagebox.showinfo("Injury", f"Your {limb_name} took {damage}% damage and is now at {self.player_data['limbs'][limb]}%.")
+            
+            # Add note about the injury
+            self.add_note(f"Injured {limb_name}: Took {damage}% damage (from {original_health}% to {self.player_data['limbs'][limb]}%)")
+    
+    def add_credits(self, amount):
+        """Add credits to the player"""
+        self.player_data["credits"] += amount
+        messagebox.showinfo("Credits Added", f"You gained {amount} credits.")
         
-        # Create saves directory if it doesn't exist
-        if not os.path.exists("game/saves"):
-            os.makedirs("game/saves")
+        # Add note about credits gained
+        self.add_note(f"Found {amount} credits. New balance: {self.player_data['credits']} credits.")
+    
+    def lose_credits(self, amount):
+        """Subtract credits from the player (min 0)"""
+        old_credits = self.player_data["credits"]
+        self.player_data["credits"] = max(0, old_credits - amount)
+        messagebox.showinfo("Credits Lost", f"You lost {amount} credits.")
         
-        # Save game to JSON file
-        filename = f"game/saves/{self.player_data['name']}.json"
-        with open(filename, "w") as f:
-            json.dump(self.player_data, f, indent=4)
-        
-        # Return to main menu without showing a confirmation
-        self.show_main_menu()
+        # Add note about credits lost
+        self.add_note(f"Lost {amount} credits. New balance: {self.player_data['credits']} credits.")
     
     def show_load_game(self):
         # Clear the window
@@ -1102,7 +1512,7 @@ class SpaceStationGame:
     def enter_special_room(self, room_name):
         """Enter a special room on the station"""
         # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security
+        from game.special_rooms import MedBay, Bridge, Security, Engineering
         from game.quarters import Quarters
         
         # Add the ship_map to player_data for special rooms to access
@@ -1117,6 +1527,9 @@ class SpaceStationGame:
         elif room_name == "Security":
             # Open Security
             security = Security(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Engineering":
+            # Open Engineering Bay
+            engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Quarters":
             # Return to quarters
             quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
@@ -1132,10 +1545,15 @@ class SpaceStationGame:
         y = self.player_data["location"]["y"]
         
         # If we're in a special room, move back to the previous position
-        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6):
-            prev_x, prev_y = self.get_previous_position()
-            self.player_data["location"]["x"] = prev_x
-            self.player_data["location"]["y"] = prev_y
+        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3):
+            # For Engineering Bay specifically, return to the hallway entrance
+            if x == 6 and y == 3:
+                self.player_data["location"]["x"] = 5
+                self.player_data["location"]["y"] = 3
+            else:
+                prev_x, prev_y = self.get_previous_position()
+                self.player_data["location"]["x"] = prev_x
+                self.player_data["location"]["y"] = prev_y
         
         # Update ship_map if it was modified in the special room
         if "ship_map" in self.player_data:
@@ -1214,13 +1632,19 @@ class SpaceStationGame:
         special_room_adjacents = {
             "5,0": "Bridge",     # Adjacent to Bridge
             "0,5": "MedBay",     # Adjacent to MedBay
-            "5,5": "Security"    # Adjacent to Security
+            "5,5": "Security",   # Adjacent to Security
+            "5,3": "Engineering" # Adjacent to Engineering Bay
         }
         
         # Check if we're near a special room and if that room is locked
         if location_key in special_room_adjacents:
             room_name = special_room_adjacents[location_key]
-            room_coords = {"Bridge": "6,0", "MedBay": "0,6", "Security": "6,6"}
+            room_coords = {
+                "Bridge": "6,0", 
+                "MedBay": "0,6", 
+                "Security": "6,6",
+                "Engineering": "6,3"
+            }
             room_key = room_coords[room_name]
             
             # Only return True if the room is actually locked
@@ -1247,7 +1671,7 @@ class SpaceStationGame:
         self.player_data["ship_map"] = self.ship_map
         
         # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security
+        from game.special_rooms import MedBay, Bridge, Security, Engineering
         from game.quarters import Quarters
         
         # Open the appropriate room
@@ -1257,8 +1681,102 @@ class SpaceStationGame:
             bridge = Bridge(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Security":
             security = Security(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Engineering":
+            engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Quarters":
             quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
+
+    def save_and_exit(self):
+        """Save the game and exit to main menu"""
+        # Update market data before saving
+        self.update_market_data()
+        
+        # Create saves directory if it doesn't exist
+        if not os.path.exists("game/saves"):
+            os.makedirs("game/saves")
+        
+        # Save game to JSON file
+        filename = f"game/saves/{self.player_data['name']}.json"
+        with open(filename, "w") as f:
+            json.dump(self.player_data, f, indent=4)
+        
+        # Stop the market thread
+        self.stop_market_thread()
+        
+        # Return to main menu
+        self.show_main_menu()
+
+    def add_random_item(self):
+        """Add a random item to the player's inventory"""
+        items = [
+            "Medkit",
+            "Repair Tool",
+            "Flashlight",
+            "Energy Bar",
+            "Circuit Board",
+            "Battery Pack",
+            "ID Card",
+            "Data Pad",
+            "Oxygen Canister",
+            "Radiation Badge",
+            "Maintenance Tool",
+            "Security Pass",
+            "Medical Scanner",
+            "Communication Device",
+            "Power Cell",
+            "Stabilizing Agent",
+            "Diagnostic Tool",
+            "Engineering Manual",
+            "Security Keycard",
+            "Medical Supply Kit",
+            "Emergency Flare",
+            "Navigation Chart",
+            "Encrypted Data Drive"
+        ]
+        item = random.choice(items)
+        
+        if "inventory" not in self.player_data:
+            self.player_data["inventory"] = []
+            
+        self.player_data["inventory"].append(item)
+        messagebox.showinfo("Item Found", f"You found a {item} and added it to your inventory.")
+        
+        # Add note about the item found
+        self.add_note(f"Found {item} and added it to inventory.")
+    
+    def add_market_knowledge(self):
+        """Add market knowledge to the player - reveals a tip about a stock"""
+        if not self.player_data["stock_market"]["companies"]:
+            messagebox.showinfo("Market Tip", "You heard a stock tip, but don't understand the market yet.")
+            return
+            
+        company = random.choice(self.player_data["stock_market"]["companies"])
+        direction = random.choice(["rise", "fall"])
+        
+        message = ""
+        if direction == "rise":
+            message = f"Overheard that {company['name']} stock is expected to rise soon!"
+            messagebox.showinfo("Market Tip", message)
+        else:
+            message = f"Overheard that {company['name']} stock might be dropping in value soon!"
+            messagebox.showinfo("Market Tip", message)
+        
+        # Add note about the market tip
+        self.add_note(f"Market Tip: {message}")
+    
+    def station_announcement(self):
+        """Display a random station announcement"""
+        announcements = [
+            "Reminder to all crew: safety protocols must be followed at all times.",
+            "The cafeteria will be serving special meal rations today.",
+            "Maintenance is scheduled in Sector 7 tomorrow.",
+            "All personnel are reminded to report suspicious activity to security.",
+            "Weekly crew meeting is postponed until further notice.",
+            "Environmental controls are being recalibrated. Expect minor temperature fluctuations."
+        ]
+        
+        announcement = random.choice(announcements)
+        messagebox.showinfo("Station Announcement", f"The PA system crackles: '{announcement}'")
 
 if __name__ == "__main__":
     root = tk.Tk()
