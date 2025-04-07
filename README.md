@@ -1,5 +1,5 @@
 # Vibemaxing-In-Space
-A Vibe Coding experiement, based on SS13
+A Vibe Coding experiement, based on Space Station 13
 
 ## Notes
 * Made using Claude 3.7 Max in Cursor (minimum $.05 per call)
