@@ -1,0 +1,262 @@
+{
+    "name": "bnm",
+    "job": "Staff Assistant",
+    "inventory": [
+        "Welcome Guide",
+        "Flashlight",
+        "Station Map"
+    ],
+    "credits": 1039.2724529058776,
+    "location": {
+        "x": 0,
+        "y": 0
+    },
+    "stock_holdings": {
+        "HealthCare Plus": 0,
+        "AutoMakers": 0
+    },
+    "stock_market": {
+        "cycle_number": 3,
+        "day_number": 1,
+        "companies": [
+            {
+                "name": "TechCorp",
+                "current_value": 311.35373425972,
+                "previous_value": 294.6632807554488,
+                "price_history": [
+                    316.0730875217387,
+                    314.7853203930764,
+                    294.6632807554488,
+                    311.35373425972
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "GlobalBank",
+                "current_value": 329.9600955324772,
+                "previous_value": 284.17887773988696,
+                "price_history": [
+                    299.5625040299871,
+                    294.57551518360566,
+                    284.17887773988696,
+                    329.9600955324772
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "HealthCare Plus",
+                "current_value": 32.30268641206445,
+                "previous_value": 30.128469089078052,
+                "price_history": [
+                    30.698719013652124,
+                    31.088602000407334,
+                    30.128469089078052,
+                    32.30268641206445
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "EnergyCo",
+                "current_value": 649.5378030290259,
+                "previous_value": 547.1343380415013,
+                "price_history": [
+                    533.0755963281572,
+                    547.514016699398,
+                    547.1343380415013,
+                    649.5378030290259
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "FoodChain",
+                "current_value": 1069.3316279099986,
+                "previous_value": 1120.800491361169,
+                "price_history": [
+                    950.1858444994068,
+                    1024.3037424334914,
+                    1120.800491361169,
+                    1069.3316279099986
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "AutoMakers",
+                "current_value": 63.96822586121586,
+                "previous_value": 60.58515444830369,
+                "price_history": [
+                    58.888367942303304,
+                    61.118305305052004,
+                    60.58515444830369,
+                    63.96822586121586
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "RetailGiant",
+                "current_value": 256.1430886979574,
+                "previous_value": 251.04218162286148,
+                "price_history": [
+                    264.5879642413979,
+                    244.17263420776058,
+                    251.04218162286148,
+                    256.1430886979574
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "PharmaTech",
+                "current_value": 274.78526149440626,
+                "previous_value": 265.45586538367263,
+                "price_history": [
+                    262.7059702137052,
+                    257.0841788631179,
+                    265.45586538367263,
+                    274.78526149440626
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "RealEstate Co",
+                "current_value": 687.7618609371588,
+                "previous_value": 604.1112032889138,
+                "price_history": [
+                    561.2246281435223,
+                    572.9876205808057,
+                    604.1112032889138,
+                    687.7618609371588
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "MediaGroup",
+                "current_value": 214.9342246508461,
+                "previous_value": 215.33925030808527,
+                "price_history": [
+                    223.28094033944657,
+                    224.14054517650956,
+                    215.33925030808527,
+                    214.9342246508461
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "Aerospace Inc",
+                "current_value": 508.223242550955,
+                "previous_value": 512.7767988723981,
+                "price_history": [
+                    428.96855451109917,
+                    465.2318775550882,
+                    512.7767988723981,
+                    508.223242550955
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "TechStart",
+                "current_value": 30.536642403287413,
+                "previous_value": 33.54409842017451,
+                "price_history": [
+                    32.062025340161526,
+                    33.77365907227192,
+                    33.54409842017451,
+                    30.536642403287413
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "GreenEnergy",
+                "current_value": 639.174135413585,
+                "previous_value": 690.3089506291394,
+                "price_history": [
+                    713.3432764752364,
+                    663.5644179894236,
+                    690.3089506291394,
+                    639.174135413585
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "DigitalBank",
+                "current_value": 864.9961534507703,
+                "previous_value": 780.2424636065134,
+                "price_history": [
+                    745.3695805281437,
+                    795.3058826380017,
+                    780.2424636065134,
+                    864.9961534507703
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "SmartHome",
+                "current_value": 709.3201800326854,
+                "previous_value": 733.1707453594175,
+                "price_history": [
+                    653.0848903160406,
+                    714.516619854373,
+                    733.1707453594175,
+                    709.3201800326854
+                ],
+                "owned_shares": 0
+            }
+        ],
+        "last_update_time": "2025-04-07T09:27:58.577408",
+        "trade_log": []
+    },
+    "cycle_trade_log": {
+        "1_1": {
+            "day": 1,
+            "cycle": 1,
+            "trades": {
+                "HealthCare Plus": {
+                    "buy": {
+                        "amount": 30,
+                        "total_cost": 932.65806001222
+                    },
+                    "sell": {
+                        "amount": 0,
+                        "total_revenue": 0
+                    }
+                },
+                "AutoMakers": {
+                    "buy": {
+                        "amount": 1,
+                        "total_cost": 61.118305305052004
+                    },
+                    "sell": {
+                        "amount": 0,
+                        "total_revenue": 0
+                    }
+                }
+            },
+            "timestamp": "2025-04-07T09:26:55.910499"
+        },
+        "1_3": {
+            "day": 1,
+            "cycle": 3,
+            "trades": {
+                "HealthCare Plus": {
+                    "buy": {
+                        "amount": 0,
+                        "total_cost": 0
+                    },
+                    "sell": {
+                        "amount": 30,
+                        "total_revenue": 969.0805923619336
+                    }
+                },
+                "AutoMakers": {
+                    "buy": {
+                        "amount": 0,
+                        "total_cost": 0
+                    },
+                    "sell": {
+                        "amount": 1,
+                        "total_revenue": 63.96822586121586
+                    }
+                }
+            },
+            "timestamp": "2025-04-07T09:28:15.186852"
+        }
+    }
+}

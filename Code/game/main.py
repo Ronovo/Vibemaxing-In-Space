@@ -93,9 +93,9 @@ class SpaceStationGame:
             "1,5": {"name": "East Section", "desc": "A hallway connecting back to the main hallways."},
             
             # Special Rooms (Locked)
-            "6,0": {"name": "Bridge", "desc": "The control center of the station. The door is locked.", "locked": True},
-            "0,6": {"name": "MedBay", "desc": "The medical facility of the station. The door is locked.", "locked": True},
-            "6,6": {"name": "Security", "desc": "The security center of the station. The door is locked.", "locked": True}
+            "6,0": {"name": "Bridge", "desc": "The control center of the station. The door is unlocked.", "locked": False},
+            "0,6": {"name": "MedBay", "desc": "The medical facility of the station. The door is unlocked.", "locked": False},
+            "6,6": {"name": "Security", "desc": "The security center of the station. The door is unlocked.", "locked": False}
         }
         
         # Bind the window close event to stop the market thread
@@ -330,26 +330,72 @@ class SpaceStationGame:
         job_label.grid(row=1, column=0, sticky="w", pady=10)
         
         self.job_var = tk.StringVar(value="Staff Assistant")
-        job_menu = tk.OptionMenu(form_frame, self.job_var, "Staff Assistant")
+        
+        # Updated jobs list with new roles
+        jobs = ["Staff Assistant", "Engineer", "Security Guard", "Doctor", "Captain"]
+        job_menu = tk.OptionMenu(form_frame, self.job_var, *jobs, command=self.update_job_information)
         job_menu.config(font=("Arial", 14), width=20)
         job_menu.grid(row=1, column=1, pady=10)
         
-        # Credits display
+        # Credits display based on selected job
         credits_label = tk.Label(form_frame, text="Starting Credits:", font=("Arial", 14), bg="black", fg="white")
         credits_label.grid(row=2, column=0, sticky="w", pady=10)
         
-        credits_value = tk.Label(form_frame, text=f"{self.player_data['credits']} cr", font=("Arial", 14), bg="black", fg="white")
-        credits_value.grid(row=2, column=1, sticky="w", pady=10)
+        self.credits_value = tk.Label(form_frame, text="1000 cr", font=("Arial", 14), bg="black", fg="white")
+        self.credits_value.grid(row=2, column=1, sticky="w", pady=10)
+        
+        # Job description frame
+        desc_frame = tk.Frame(self.root, bg="black")
+        desc_frame.pack(pady=10, fill=tk.X, padx=50)
+        
+        desc_label = tk.Label(desc_frame, text="Job Description:", font=("Arial", 14, "bold"), bg="black", fg="white")
+        desc_label.pack(anchor=tk.W)
+        
+        self.job_description = tk.Label(desc_frame, text="", font=("Arial", 12), bg="black", fg="white", wraplength=700, justify=tk.LEFT)
+        self.job_description.pack(anchor=tk.W, pady=5)
+        
+        # Initialize the job description for the default job
+        self.update_job_information(self.job_var.get())
         
         # Buttons
         button_frame = tk.Frame(self.root, bg="black")
-        button_frame.pack(pady=30)
+        button_frame.pack(pady=20)
         
         start_game_btn = tk.Button(button_frame, text="Start Game", font=("Arial", 14), width=15, command=self.start_game)
         start_game_btn.pack(side=tk.LEFT, padx=10)
         
         back_btn = tk.Button(button_frame, text="Back", font=("Arial", 14), width=15, command=self.show_main_menu)
         back_btn.pack(side=tk.LEFT, padx=10)
+    
+    def update_job_information(self, job_name):
+        """Update the job description and credits display based on selected job"""
+        job = job_name
+        
+        # Set credit amount based on job
+        if job == "Staff Assistant":
+            credits = 1000
+            description = "Staff Assistants are the backbone of daily station operations. They handle various tasks as needed across the station. Starting with 1000 credits."
+        elif job == "Engineer":
+            credits = 2500
+            description = "Engineers are responsible for keeping the station's critical systems operational. They excel at repairing equipment and solving technical problems. Starting with 2500 credits."
+        elif job == "Security Guard":
+            credits = 5000
+            description = "Security Guards maintain order and protect the station from threats. They have access to security systems and equipment. Starting with 5000 credits and access to the Security Station."
+        elif job == "Doctor":
+            credits = 7500
+            description = "Doctors provide medical care to the station's crew. They can diagnose and treat a variety of conditions. Starting with 7500 credits and access to the MedBay Station."
+        elif job == "Captain":
+            credits = 10000
+            description = "The Captain is the highest authority on the station. They make critical decisions and coordinate all departments. Starting with 10000 credits and access to all station areas."
+        else:
+            credits = 1000  # Default
+            description = "Select a job to see its description."
+            
+        # Update the credits display
+        self.credits_value.config(text=f"{credits} cr")
+        
+        # Update the job description
+        self.job_description.config(text=description)
     
     def start_game(self):
         # Get player information
@@ -365,6 +411,54 @@ class SpaceStationGame:
         self.player_data["inventory"] = []
         self.player_data["location"] = {"x": 0, "y": 0}
         self.player_data["stock_holdings"] = {}
+        
+        # Set starting credits based on job
+        job = self.job_var.get()
+        if job == "Staff Assistant":
+            self.player_data["credits"] = 1000
+        elif job == "Engineer":
+            self.player_data["credits"] = 2500
+        elif job == "Security Guard":
+            self.player_data["credits"] = 5000
+        elif job == "Doctor":
+            self.player_data["credits"] = 7500
+        elif job == "Captain":
+            self.player_data["credits"] = 10000
+        else:
+            self.player_data["credits"] = 1000  # Default for Staff Assistant
+            
+        # Set job-specific permissions for room access
+        if job == "Captain":
+            # Captain has access to all stations
+            self.player_data["permissions"] = {
+                "security_station": True,
+                "medbay_station": True,
+                "bridge_station": True
+            }
+        else:
+            # Other jobs have specific access
+            self.player_data["permissions"] = {
+                "security_station": job == "Security Guard",
+                "medbay_station": job == "Doctor",
+                "bridge_station": job == "Captain"
+            }
+        
+        # Create or save character file 
+        self.save_and_start()
+    
+    def save_and_start(self):
+        """Save the character and start the game"""
+        # Update market data before saving
+        self.update_market_data()
+        
+        # Create saves directory if it doesn't exist
+        if not os.path.exists("game/saves"):
+            os.makedirs("game/saves")
+        
+        # Save game to JSON file
+        filename = f"game/saves/{self.player_data['name']}.json"
+        with open(filename, "w") as f:
+            json.dump(self.player_data, f, indent=4)
         
         # Initialize stock market data
         self.update_market_data()
@@ -483,7 +577,66 @@ class SpaceStationGame:
         back_btn.pack(pady=20)
     
     def interact_bed(self):
-        messagebox.showinfo("Bed", "Not time to sleep.")
+        # Create a new top-level window for save dialog
+        save_window = tk.Toplevel(self.root)
+        save_window.title("Bed")
+        save_window.geometry("300x150")
+        save_window.transient(self.root)
+        save_window.grab_set()
+        
+        # Center the window
+        save_window.geometry("+%d+%d" % (self.root.winfo_rootx() + 250,
+                                        self.root.winfo_rooty() + 200))
+        
+        # Create frame with padding
+        save_frame = tk.Frame(save_window, bg="black")
+        save_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Message
+        tk.Label(
+            save_frame,
+            text="Would you like to save your game?",
+            font=("Arial", 12),
+            bg="black",
+            fg="white"
+        ).pack(pady=10)
+        
+        # Buttons frame
+        buttons_frame = tk.Frame(save_frame, bg="black")
+        buttons_frame.pack(pady=10)
+        
+        # Yes button
+        tk.Button(
+            buttons_frame,
+            text="Yes",
+            font=("Arial", 12),
+            command=lambda: self.save_game_and_close(save_window)
+        ).pack(side=tk.LEFT, padx=10)
+        
+        # No button
+        tk.Button(
+            buttons_frame,
+            text="No",
+            font=("Arial", 12),
+            command=save_window.destroy
+        ).pack(side=tk.LEFT, padx=10)
+    
+    def save_game_and_close(self, save_window):
+        """Save the game and close the save dialog"""
+        # Update market data before saving
+        self.update_market_data()
+        
+        # Create saves directory if it doesn't exist
+        if not os.path.exists("game/saves"):
+            os.makedirs("game/saves")
+        
+        # Save game to JSON file
+        filename = f"game/saves/{self.player_data['name']}.json"
+        with open(filename, "w") as f:
+            json.dump(self.player_data, f, indent=4)
+        
+        # Close the save dialog without showing a confirmation
+        save_window.destroy()
     
     def show_storage(self):
         # Clear the window
@@ -627,6 +780,10 @@ class SpaceStationGame:
         
         location = self.ship_map[loc_key]
         
+        # Check if we're at a special room that can be entered
+        if self.check_special_room():
+            return
+        
         # Check if room is locked
         if location.get("locked", False):
             messagebox.showinfo("Locked Door", f"The door to the {location['name']} is locked. You need proper authorization to enter.")
@@ -659,6 +816,12 @@ class SpaceStationGame:
         # Determine available directions
         x = self.player_data["location"]["x"]
         y = self.player_data["location"]["y"]
+        
+        # Add an unlock door button if appropriate
+        if self.is_near_special_room():
+            unlock_btn = tk.Button(self.root, text="Unlock Door", font=("Arial", 14), width=15,
+                               command=self.unlock_door)
+            unlock_btn.pack(pady=10)
         
         # Updated movement logic for circuit and locked rooms:
         north_available = False
@@ -699,7 +862,7 @@ class SpaceStationGame:
             is_special_location = True
             # Add the Bridge access button
             bridge_btn = tk.Button(nav_frame, text="Bridge", font=("Arial", 14), width=15,
-                                command=lambda: self.move_direction("north"))
+                                command=lambda: self.enter_special_room_at("Bridge", "6,0"))
             bridge_btn.grid(row=0, column=1, padx=10, pady=10)
             
             # Also add regular east button for the corridor
@@ -719,7 +882,7 @@ class SpaceStationGame:
             is_special_location = True
             # Add MedBay access button
             medbay_btn = tk.Button(nav_frame, text="MedBay", font=("Arial", 14), width=15,
-                              command=lambda: self.move_direction("east"))
+                              command=lambda: self.enter_special_room_at("MedBay", "0,6"))
             medbay_btn.grid(row=1, column=2, padx=10, pady=10)
             
             # Add north button for the corridor
@@ -739,7 +902,7 @@ class SpaceStationGame:
             is_special_location = True
             # Just one button for Security access
             security_btn = tk.Button(nav_frame, text="Security", font=("Arial", 14), width=15,
-                                 command=lambda: self.move_to_security())
+                                 command=lambda: self.enter_special_room_at("Security", "6,6"))
             security_btn.grid(row=0, column=1, padx=10, pady=10)
             
             # Add west and south buttons for the corridors
@@ -856,7 +1019,7 @@ class SpaceStationGame:
         with open(filename, "w") as f:
             json.dump(self.player_data, f, indent=4)
         
-        messagebox.showinfo("Game Saved", f"Game saved as {filename}")
+        # Return to main menu without showing a confirmation
         self.show_main_menu()
     
     def show_load_game(self):
@@ -905,8 +1068,6 @@ class SpaceStationGame:
             # Start the market thread
             self.start_market_thread()
             
-            messagebox.showinfo("Game Loaded", f"Loaded game for {self.player_data['name']}")
-            
             # Check if player was in hallway when saved
             if "location" in self.player_data and (self.player_data["location"]["x"] > 0 or self.player_data["location"]["y"] > 0):
                 self.show_hallway()
@@ -937,6 +1098,167 @@ class SpaceStationGame:
         
         # Default to junction if something goes wrong
         return 0, 0
+
+    def enter_special_room(self, room_name):
+        """Enter a special room on the station"""
+        # Import special room classes
+        from game.special_rooms import MedBay, Bridge, Security
+        from game.quarters import Quarters
+        
+        # Add the ship_map to player_data for special rooms to access
+        self.player_data["ship_map"] = self.ship_map
+        
+        if room_name == "MedBay":
+            # Open MedBay
+            medbay = MedBay(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Bridge":
+            # Open Bridge
+            bridge = Bridge(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Security":
+            # Open Security
+            security = Security(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Quarters":
+            # Return to quarters
+            quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
+    
+    def update_player_data_from_room(self, updated_data):
+        """Update player data when returning from a room"""
+        # Update player data
+        self.player_data = updated_data
+        
+        # Return to the previous position in the hallway
+        # (not the room position, which causes loops)
+        x = self.player_data["location"]["x"]
+        y = self.player_data["location"]["y"]
+        
+        # If we're in a special room, move back to the previous position
+        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6):
+            prev_x, prev_y = self.get_previous_position()
+            self.player_data["location"]["x"] = prev_x
+            self.player_data["location"]["y"] = prev_y
+        
+        # Update ship_map if it was modified in the special room
+        if "ship_map" in self.player_data:
+            self.ship_map = self.player_data["ship_map"]
+            # Remove it from player_data to keep it clean
+            del self.player_data["ship_map"]
+        
+        # Show hallway screen
+        self.show_hallway()
+
+    def unlock_door(self):
+        """Attempt to unlock a special room door"""
+        x = self.player_data["location"]["x"]
+        y = self.player_data["location"]["y"]
+        location_key = f"{x},{y}"
+        
+        # Check if there's an adjacent special room to unlock
+        special_rooms = {
+            "5,0": "Bridge",     # Adjacent to Bridge
+            "0,5": "MedBay",     # Adjacent to MedBay
+            "5,5": "Security"    # Adjacent to Security
+        }
+        
+        if location_key in special_rooms:
+            room_name = special_rooms[location_key]
+            room_coords = {"Bridge": "6,0", "MedBay": "0,6", "Security": "6,6"}
+            room_key = room_coords[room_name]
+            
+            # Check if room is locked
+            if self.ship_map[room_key].get("locked", False):
+                # Unlock the room
+                self.ship_map[room_key]["locked"] = False
+                self.ship_map[room_key]["desc"] = f"The {room_name}. The door is unlocked."
+                
+                # Don't change the player's location, just open the room
+                self.enter_special_room(room_name)
+            else:
+                # Room is already unlocked, just enter it
+                self.enter_special_room(room_name)
+        else:
+            messagebox.showinfo("No Door Nearby", "There's no special room door nearby to unlock.")
+
+    def check_special_room(self):
+        """Check if we're at a special room and can enter it"""
+        x = self.player_data["location"]["x"]
+        y = self.player_data["location"]["y"]
+        location_key = f"{x},{y}"
+        
+        # Define special room coordinates and their names
+        special_rooms = {
+            "6,0": "Bridge",
+            "0,6": "MedBay",
+            "6,6": "Security"
+        }
+        
+        if location_key in special_rooms:
+            room_name = special_rooms[location_key]
+            
+            # If room is not locked, allow entry
+            if not self.ship_map[location_key].get("locked", False):
+                # Enter the special room
+                self.enter_special_room(room_name)
+                return True
+            else:
+                messagebox.showinfo("Locked Door", f"The {room_name} door is locked.")
+        
+        return False
+
+    def is_near_special_room(self):
+        """Check if we're near a special room that can be unlocked"""
+        x = self.player_data["location"]["x"]
+        y = self.player_data["location"]["y"]
+        location_key = f"{x},{y}"
+        
+        # Adjacent locations to special rooms
+        special_room_adjacents = {
+            "5,0": "Bridge",     # Adjacent to Bridge
+            "0,5": "MedBay",     # Adjacent to MedBay
+            "5,5": "Security"    # Adjacent to Security
+        }
+        
+        # Check if we're near a special room and if that room is locked
+        if location_key in special_room_adjacents:
+            room_name = special_room_adjacents[location_key]
+            room_coords = {"Bridge": "6,0", "MedBay": "0,6", "Security": "6,6"}
+            room_key = room_coords[room_name]
+            
+            # Only return True if the room is actually locked
+            return self.ship_map[room_key].get("locked", False)
+            
+        return False
+
+    def enter_special_room_at(self, room_name, target_key):
+        """Enter a special room at a specified target location"""
+        # Check if the room is locked
+        if self.ship_map[target_key].get("locked", False):
+            messagebox.showinfo("Locked Door", f"The {room_name} door is locked. You need to unlock it first.")
+            return
+        
+        # Store current position before entering room
+        current_x = self.player_data["location"]["x"]
+        current_y = self.player_data["location"]["y"]
+        
+        # Navigate to the target location temporarily
+        self.player_data["location"]["x"] = int(target_key.split(",")[0])
+        self.player_data["location"]["y"] = int(target_key.split(",")[1])
+        
+        # Add the ship_map to player_data for special rooms to access
+        self.player_data["ship_map"] = self.ship_map
+        
+        # Import special room classes
+        from game.special_rooms import MedBay, Bridge, Security
+        from game.quarters import Quarters
+        
+        # Open the appropriate room
+        if room_name == "MedBay":
+            medbay = MedBay(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Bridge":
+            bridge = Bridge(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Security":
+            security = Security(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Quarters":
+            quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
 
 if __name__ == "__main__":
     root = tk.Tk()

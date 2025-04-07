@@ -1,0 +1,159 @@
+{
+    "name": "captain",
+    "job": "Captain",
+    "inventory": [],
+    "credits": 10000,
+    "location": {
+        "x": 0,
+        "y": 0
+    },
+    "stock_holdings": {},
+    "stock_market": {
+        "cycle_number": 0,
+        "day_number": 1,
+        "companies": [
+            {
+                "name": "TechCorp",
+                "current_value": 571.2383319632547,
+                "previous_value": 571.2383319632547,
+                "price_history": [
+                    571.2383319632547
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "GlobalBank",
+                "current_value": 792.7747323456326,
+                "previous_value": 792.7747323456326,
+                "price_history": [
+                    792.7747323456326
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "HealthCare Plus",
+                "current_value": 918.8223570652702,
+                "previous_value": 918.8223570652702,
+                "price_history": [
+                    918.8223570652702
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "EnergyCo",
+                "current_value": 649.2518417902841,
+                "previous_value": 649.2518417902841,
+                "price_history": [
+                    649.2518417902841
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "FoodChain",
+                "current_value": 819.3691741050945,
+                "previous_value": 819.3691741050945,
+                "price_history": [
+                    819.3691741050945
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "AutoMakers",
+                "current_value": 656.0670800826362,
+                "previous_value": 656.0670800826362,
+                "price_history": [
+                    656.0670800826362
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "RetailGiant",
+                "current_value": 659.6872050321438,
+                "previous_value": 659.6872050321438,
+                "price_history": [
+                    659.6872050321438
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "PharmaTech",
+                "current_value": 622.2065101654742,
+                "previous_value": 622.2065101654742,
+                "price_history": [
+                    622.2065101654742
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "RealEstate Co",
+                "current_value": 23.48399940825893,
+                "previous_value": 23.48399940825893,
+                "price_history": [
+                    23.48399940825893
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "MediaGroup",
+                "current_value": 155.211095979638,
+                "previous_value": 155.211095979638,
+                "price_history": [
+                    155.211095979638
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "Aerospace Inc",
+                "current_value": 878.3016778897909,
+                "previous_value": 878.3016778897909,
+                "price_history": [
+                    878.3016778897909
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "TechStart",
+                "current_value": 645.0258913570378,
+                "previous_value": 645.0258913570378,
+                "price_history": [
+                    645.0258913570378
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "GreenEnergy",
+                "current_value": 829.5379016909019,
+                "previous_value": 829.5379016909019,
+                "price_history": [
+                    829.5379016909019
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "DigitalBank",
+                "current_value": 943.8635874352686,
+                "previous_value": 943.8635874352686,
+                "price_history": [
+                    943.8635874352686
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "SmartHome",
+                "current_value": 923.7783927465674,
+                "previous_value": 923.7783927465674,
+                "price_history": [
+                    923.7783927465674
+                ],
+                "owned_shares": 0
+            }
+        ],
+        "last_update_time": "2025-04-07T09:42:46.980350",
+        "trade_log": []
+    },
+    "permissions": {
+        "security_station": true,
+        "medbay_station": true,
+        "bridge_station": true
+    }
+}
