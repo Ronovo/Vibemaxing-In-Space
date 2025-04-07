@@ -23,3 +23,6 @@ A Vibe Coding experiement, based on Space Station 13
     * Don't remember much of the breakdown
     * ~$.75 I do remember for the notes system
     * Other then some UI issues, there was not many bug fixes
+  * release 10.3.0 - Added .exe build, and the ability to read the books in your locker
+    * ~$1.10 for doing the .exe build, and to remove the linux builder I didn't ask for
+    * The rest was some minor bug fixes and adding the read ability.  
