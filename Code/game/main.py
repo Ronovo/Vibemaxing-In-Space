@@ -99,6 +99,12 @@ class SpaceStationGame:
             Company("DigitalBank", random.uniform(10, 1000)),
             Company("SmartHome", random.uniform(10, 1000))
         ]
+
+        # Generate 5 cycles of history for each company
+        for _ in range(5):
+            for company in self.companies:
+                company.update_value()
+
         self.stock_cycle_number = 0
         self.stock_day_number = 1
         self.market_thread = None
@@ -130,13 +136,13 @@ class SpaceStationGame:
             "notes": []  # Add notes array to track important events
         }
         
-        # Ship map configuration - Updated to include Engineering Bay
+        # Ship map configuration - Updated to include Botany Lab
         self.ship_map = {
             # Hallway Junction and Main Hallways
             "0,0": {"name": "Hallway Junction", "desc": "A junction in the hallway. Your quarters are nearby."},
             "1,0": {"name": "North Hallway", "desc": "A long hallway stretching north."},
             "2,0": {"name": "North Hallway", "desc": "A long hallway stretching north."},
-            "3,0": {"name": "North Hallway", "desc": "A long hallway stretching north."},
+            "3,0": {"name": "North Hallway", "desc": "A long hallway stretching north. You notice a door labeled 'Botany Lab' on the west wall."},
             "4,0": {"name": "North Hallway", "desc": "A long hallway stretching north."},
             "5,0": {"name": "North End", "desc": "The northern end of the hallway. The bridge is nearby."},
             "0,1": {"name": "East Hallway", "desc": "A long hallway stretching east."},
@@ -163,7 +169,8 @@ class SpaceStationGame:
             "0,6": {"name": "MedBay", "desc": "The medical facility of the station. The door is unlocked.", "locked": False},
             "6,6": {"name": "Security", "desc": "The security center of the station. The door is unlocked.", "locked": False},
             "6,3": {"name": "Engineering Bay", "desc": "The station's engineering and maintenance center. The door is unlocked.", "locked": False},
-            "0,-1": {"name": "Bar", "desc": "The station's social hub where crew members can relax and enjoy drinks. The door is unlocked.", "locked": False}
+            "0,-1": {"name": "Bar", "desc": "The station's social hub where crew members can relax and enjoy drinks. The door is unlocked.", "locked": False},
+            "3,-1": {"name": "Botany Lab", "desc": "The station's plant cultivation and research facility. The door is unlocked.", "locked": False}
         }
         
         # Bind the window close event to stop the market thread
@@ -207,11 +214,15 @@ class SpaceStationGame:
                 # Update last update time
                 self.last_update_time = now
                 
-                # Update player data with current market state
+                # Immediately update player data with new market state
+                # This ensures all UI windows have access to the latest data
                 self.update_market_data()
                 
                 # Process any pending trades if any
                 self.process_pending_trades()
+                
+                # Log market update
+                print(f"Market updated: Cycle {self.stock_cycle_number}, Day {self.stock_day_number}")
             
             # Sleep for 1 second before checking again
             time.sleep(1)
@@ -400,7 +411,7 @@ class SpaceStationGame:
         self.job_var = tk.StringVar(value="Staff Assistant")
         
         # Updated jobs list with new roles
-        jobs = ["Staff Assistant", "Engineer", "Security Guard", "Doctor", "Captain", "Bartender"]
+        jobs = ["Staff Assistant", "Engineer", "Security Guard", "Doctor", "Captain", "Bartender", "Head of Personnel", "Botanist"]
         job_menu = tk.OptionMenu(form_frame, self.job_var, *jobs, command=self.update_job_information)
         job_menu.config(font=("Arial", 14), width=20)
         job_menu.grid(row=1, column=1, pady=10)
@@ -458,6 +469,12 @@ class SpaceStationGame:
         elif job == "Bartender":
             credits = 3500
             description = "Bartenders run the station's social hub, mixing drinks and providing a place for crew members to relax. They have deep knowledge of beverages and excellent social skills. Starting with 3500 credits and access to the Bar Station."
+        elif job == "Head of Personnel":
+            credits = 9000
+            description = "The Head of Personnel (HoP) is the second-in-command of the station. They manage crew assignments, access permissions, and administrative matters. Starting with 9000 credits and access to the HoP Station and Bar Station."
+        elif job == "Botanist":
+            credits = 3000
+            description = "Botanists cultivate and maintain the station's plant life. They grow food, medicinal herbs, and decorative plants in the Botany Lab. Starting with 3000 credits and access to the Botany Station."
         else:
             credits = 1000  # Default
             description = "Select a job to see its description."
@@ -497,6 +514,10 @@ class SpaceStationGame:
             self.player_data["credits"] = 10000
         elif job == "Bartender":
             self.player_data["credits"] = 3500
+        elif job == "Head of Personnel":
+            self.player_data["credits"] = 9000
+        elif job == "Botanist":
+            self.player_data["credits"] = 3000
         else:
             self.player_data["credits"] = 1000  # Default for Staff Assistant
             
@@ -508,7 +529,31 @@ class SpaceStationGame:
                 "medbay_station": True,
                 "bridge_station": True,
                 "engineering_station": True,
-                "bar_station": True
+                "bar_station": True,
+                "hop_station": True,
+                "botany_station": True
+            }
+        elif job == "Head of Personnel":
+            # HoP has access to HoP station, Bar station, and Botany station
+            self.player_data["permissions"] = {
+                "security_station": False,
+                "medbay_station": False,
+                "bridge_station": False,
+                "engineering_station": False,
+                "bar_station": True,
+                "hop_station": True,
+                "botany_station": True
+            }
+        elif job == "Botanist":
+            # Botanist has access to Botany station
+            self.player_data["permissions"] = {
+                "security_station": False,
+                "medbay_station": False,
+                "bridge_station": False,
+                "engineering_station": False,
+                "bar_station": False,
+                "hop_station": False,
+                "botany_station": True
             }
         else:
             # Other jobs have specific access
@@ -517,8 +562,30 @@ class SpaceStationGame:
                 "medbay_station": job == "Doctor",
                 "bridge_station": job == "Captain",
                 "engineering_station": job == "Engineer",
-                "bar_station": job == "Bartender"
+                "bar_station": job == "Bartender",
+                "hop_station": False,
+                "botany_station": job == "Botanist"
             }
+        
+        # Initialize stock market with starting values
+        if "stock_market" not in self.player_data:
+            self.player_data["stock_market"] = {
+                "cycle_number": 0,
+                "day_number": 1,
+                "last_update_time": datetime.datetime.now().isoformat(),
+                "companies": [],
+                "trade_log": []
+            }
+            
+            # Initialize company data in player data
+            for company in self.companies:
+                self.player_data["stock_market"]["companies"].append({
+                    "name": company.name,
+                    "current_value": company.current_value,
+                    "previous_value": company.previous_value,
+                    "price_history": company.price_history,
+                    "owned_shares": 0
+                })
         
         # Create or save character file 
         self.save_and_start()
@@ -780,6 +847,27 @@ class SpaceStationGame:
             notes_text.insert(tk.END, "No notes recorded yet.")
             notes_text.config(state=tk.DISABLED)
         
+        # Mouse wheel binding for scrolling
+        def _on_notes_mousewheel(event):
+            try:
+                notes_text.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Ignore errors if the text widget was destroyed
+        
+        # Bind mousewheel to notes text widget
+        popup.bind("<MouseWheel>", _on_notes_mousewheel)
+        
+        # Override destroy method to cleanup bindings
+        orig_destroy = popup.destroy
+        def _destroy_and_cleanup():
+            try:
+                popup.unbind("<MouseWheel>")
+            except:
+                pass
+            orig_destroy()
+        
+        popup.destroy = _destroy_and_cleanup
+        
         # Close button
         close_btn = tk.Button(popup, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
         close_btn.pack(pady=10)
@@ -841,6 +929,27 @@ class SpaceStationGame:
         else:
             for item in self.player_data['inventory']:
                 inventory_list.insert(tk.END, item)
+        
+        # Mouse wheel binding for scrolling
+        def _on_inventory_mousewheel(event):
+            try:
+                inventory_list.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Ignore errors if the widget was destroyed
+        
+        # Bind mousewheel to inventory list
+        popup.bind("<MouseWheel>", _on_inventory_mousewheel)
+        
+        # Override destroy method to cleanup bindings
+        orig_destroy = popup.destroy
+        def _destroy_and_cleanup():
+            try:
+                popup.unbind("<MouseWheel>")
+            except:
+                pass
+            orig_destroy()
+        
+        popup.destroy = _destroy_and_cleanup
         
         # Button frame for actions
         button_frame = tk.Frame(popup, bg="black")
@@ -918,6 +1027,27 @@ class SpaceStationGame:
         # Add note that player read the book
         self.add_note(f"Read the {item_name}.")
         
+        # Mouse wheel binding for scrolling
+        def _on_content_mousewheel(event):
+            try:
+                content_text.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Ignore errors if the widget was destroyed
+        
+        # Bind mousewheel to content text
+        read_popup.bind("<MouseWheel>", _on_content_mousewheel)
+        
+        # Override destroy method to cleanup bindings
+        orig_destroy = read_popup.destroy
+        def _destroy_and_cleanup():
+            try:
+                read_popup.unbind("<MouseWheel>")
+            except:
+                pass
+            orig_destroy()
+        
+        read_popup.destroy = _destroy_and_cleanup
+        
         # Close button
         close_btn = tk.Button(read_popup, text="Close", font=("Arial", 12), width=10, command=read_popup.destroy)
         close_btn.pack(pady=10)
@@ -965,6 +1095,27 @@ class SpaceStationGame:
         else:
             for company, shares in self.player_data['stock_holdings'].items():
                 holdings_list.insert(tk.END, f"{company}: {shares} shares")
+        
+        # Mouse wheel binding for scrolling
+        def _on_holdings_mousewheel(event):
+            try:
+                holdings_list.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass  # Ignore errors if the widget was destroyed
+        
+        # Bind mousewheel to holdings list
+        popup.bind("<MouseWheel>", _on_holdings_mousewheel)
+        
+        # Override destroy method to cleanup bindings
+        orig_destroy = popup.destroy
+        def _destroy_and_cleanup():
+            try:
+                popup.unbind("<MouseWheel>")
+            except:
+                pass
+            orig_destroy()
+        
+        popup.destroy = _destroy_and_cleanup
         
         # Close button
         close_btn = tk.Button(popup, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
@@ -1153,12 +1304,26 @@ class SpaceStationGame:
         inventory_canvas.bind_all("<MouseWheel>", lambda event: self._on_mousewheel(event, inventory_canvas))
         
         # Back button
-        back_btn = tk.Button(self.root, text="Back to Room", font=("Arial", 14), width=15, command=self.show_room)
+        back_btn = tk.Button(self.root, text="Back to Room", font=("Arial", 14), width=15, command=lambda: self._exit_storage(locker_canvas, inventory_canvas))
         back_btn.pack(pady=20)
+    
+    def _exit_storage(self, *canvases):
+        """Clean up bindings before exiting storage view"""
+        # Unbind all mouse wheel handlers
+        for canvas in canvases:
+            try:
+                canvas.unbind_all("<MouseWheel>")
+            except:
+                pass
+        # Return to room view
+        self.show_room()
     
     def _on_mousewheel(self, event, canvas):
         """Handle mouse wheel scrolling"""
-        canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        try:
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        except tk.TclError:
+            pass  # Ignore errors if the canvas was destroyed
     
     def take_item(self, item_name):
         if item_name not in self.player_data["inventory"]:
@@ -1446,6 +1611,12 @@ class SpaceStationGame:
                 west_btn = tk.Button(nav_frame, text="Go West", font=("Arial", 14), width=15,
                                    command=lambda: self.move_direction("west"))
                 west_btn.grid(row=1, column=0, padx=10, pady=10)
+            
+            # Special case for the Botany Lab entrance at (3,0)
+            if x == 3 and y == 0:
+                botany_btn = tk.Button(nav_frame, text="Botany Lab", font=("Arial", 14), width=15,
+                                     command=lambda: self.enter_special_room_at("Botany", "3,-1"))
+                botany_btn.grid(row=1, column=0, padx=10, pady=10)
         
         # Only show return to quarters at the starting junction
         if x == 0 and y == 0:
@@ -1672,6 +1843,10 @@ class SpaceStationGame:
         # Bar entrance (0,-1) -> return to Bar Entrance (0,3)
         if x == 0 and y == -1:
             return 0, 3
+            
+        # Botany Lab entrance (3,-1) -> return to Botany Lab Entrance (3,0)
+        if x == 3 and y == -1:
+            return 3, 0
         
         # Default to junction if something goes wrong
         return 0, 0
@@ -1679,7 +1854,7 @@ class SpaceStationGame:
     def enter_special_room(self, room_name):
         """Enter a special room on the station"""
         # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar
+        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar, Botany
         from game.quarters import Quarters
         
         # Add the ship_map to player_data for special rooms to access
@@ -1700,6 +1875,9 @@ class SpaceStationGame:
         elif room_name == "Bar":
             # Open Bar
             bar = Bar(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Botany":
+            # Open Botany Lab
+            botany = Botany(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Quarters":
             # Return to quarters
             quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
@@ -1715,7 +1893,7 @@ class SpaceStationGame:
         y = self.player_data["location"]["y"]
         
         # If we're in a special room, move back to the previous position
-        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3) or (x == 0 and y == -1):
+        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3) or (x == 0 and y == -1) or (x == 3 and y == -1):
             # For Engineering Bay specifically, return to the hallway entrance
             if x == 6 and y == 3:
                 self.player_data["location"]["x"] = 5
@@ -1724,6 +1902,10 @@ class SpaceStationGame:
             elif x == 0 and y == -1:
                 self.player_data["location"]["x"] = 0
                 self.player_data["location"]["y"] = 3
+            # For Botany Lab specifically, return to the hallway entrance
+            elif x == 3 and y == -1:
+                self.player_data["location"]["x"] = 3
+                self.player_data["location"]["y"] = 0
             else:
                 prev_x, prev_y = self.get_previous_position()
                 self.player_data["location"]["x"] = prev_x
@@ -1855,7 +2037,7 @@ class SpaceStationGame:
         self.player_data["ship_map"] = self.ship_map
         
         # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar
+        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar, Botany
         from game.quarters import Quarters
         
         # Open the appropriate room
@@ -1869,6 +2051,8 @@ class SpaceStationGame:
             engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Bar":
             bar = Bar(self.root, self.player_data, self.update_player_data_from_room)
+        elif room_name == "Botany":
+            botany = Botany(self.root, self.player_data, self.update_player_data_from_room)
         elif room_name == "Quarters":
             quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
 
