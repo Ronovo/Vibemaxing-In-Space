@@ -25,4 +25,6 @@ A Vibe Coding experiement, based on Space Station 13
     * Other then some UI issues, there was not many bug fixes
   * release 10.3.0 - Added .exe build, and the ability to read the books in your locker
     * ~$1.10 for doing the .exe build, and to remove the linux builder I didn't ask for
-    * The rest was some minor bug fixes and adding the read ability.  
+    * The rest was some minor bug fixes and adding the read ability.
+  * release 16.9.5 - Added 2 new roles: Head of Personnel and Botanist. Added new stations. Also added drink mixing. 
+    * The average prompt is now costing ~$0.25, instead of ~$.15 per prompt for any non-minor change.   

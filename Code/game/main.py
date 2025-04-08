@@ -17,6 +17,9 @@ from matplotlib.figure import Figure
 from game.stock_market import StockMarket
 from game.stock_market import Company
 
+# Import the Game class correctly
+from game.game import Game
+
 # Define the book contents
 BOOK_CONTENTS = {
     "Welcome Guide": """WELCOME TO SPACE STATION EXPLORER
@@ -74,9 +77,20 @@ Contact Engineering for all major repair needs.
 class SpaceStationGame:
     def __init__(self, root, base_path):
         self.root = root
-        self.root.title("Space Station Explorer")
+        self.base_path = base_path
+        self.root.title("Space Station 13 Text Clone")
         self.root.geometry("800x600")
         self.root.configure(bg="black")
+        
+        # Initialize variables
+        self.previous_position = None
+        self.market_running = False
+        self.market_thread = None
+        self.last_update_time = datetime.datetime.now()
+        
+        # Initialize battery timer
+        self.battery_timer_running = False
+        self.battery_timer_id = None
         
         # Store base path for file operations
         self.base_path = base_path
@@ -105,11 +119,8 @@ class SpaceStationGame:
             for company in self.companies:
                 company.update_value()
 
-        self.stock_cycle_number = 0
+        self.stock_cycle_number = 1
         self.stock_day_number = 1
-        self.market_thread = None
-        self.market_running = False
-        self.last_update_time = datetime.datetime.now()
         
         self.player_data = {
             "name": "",
@@ -119,7 +130,7 @@ class SpaceStationGame:
             "location": {"x": 0, "y": 0},  # Add location data for hallway navigation
             "stock_holdings": {},  # Add stock holdings data
             "stock_market": {
-                "cycle_number": 0,
+                "cycle_number": 1,
                 "day_number": 1,
                 "companies": [],
                 "last_update_time": datetime.datetime.now().isoformat(),
@@ -133,12 +144,29 @@ class SpaceStationGame:
                 "chest": 100,
                 "head": 100
             },
+            "damage": {
+                "burn": 0,
+                "poison": 0,
+                "oxygen": 0
+            },
+            "station_power": {
+                "battery_level": 25.0,
+                "solar_charging": False,
+                "last_update_time": datetime.datetime.now().isoformat(),
+                "system_levels": {
+                    "life_support": 10,
+                    "hallway_lighting": 5,
+                    "security_systems": 7,
+                    "communication_array": 5
+                },
+                "power_mode": "balanced"
+            },
             "notes": []  # Add notes array to track important events
         }
         
         # Ship map configuration - Updated to include Botany Lab
         self.ship_map = {
-            # Hallway Junction and Main Hallways
+            "-1,0": {"name": "Quarters", "desc": "Your personal quarters on the station."},
             "0,0": {"name": "Hallway Junction", "desc": "A junction in the hallway. Your quarters are nearby."},
             "1,0": {"name": "North Hallway", "desc": "A long hallway stretching north."},
             "2,0": {"name": "North Hallway", "desc": "A long hallway stretching north."},
@@ -179,8 +207,22 @@ class SpaceStationGame:
         self.show_main_menu()
     
     def on_closing(self):
-        # Stop the market thread before closing
+        """Handle application closing"""
+        # Stop the market thread
         self.stop_market_thread()
+        
+        # Stop the battery timer
+        self.stop_battery_timer()
+        
+        # Save the game before closing if a game is in progress
+        if self.player_data and self.player_data.get("name"):
+            # Update market data one last time
+            self.update_market_data()
+            
+            # Save the game
+            Game.save_game(self.player_data)
+        
+        # Destroy the window
         self.root.destroy()
     
     def start_market_thread(self):
@@ -193,6 +235,291 @@ class SpaceStationGame:
         self.market_running = False
         if self.market_thread and self.market_thread.is_alive():
             self.market_thread.join(1)  # Give it 1 second to finish
+            
+    def stop_battery_timer(self):
+        """Stop the battery timer if it's running"""
+        self.battery_timer_running = False
+        if self.battery_timer_id:
+            self.root.after_cancel(self.battery_timer_id)
+            self.battery_timer_id = None
+            
+    def start_battery_timer(self):
+        """Start the timer that handles battery discharge and charging"""
+        if not self.battery_timer_running:
+            print("Starting battery timer...")
+            self.battery_timer_running = True
+            self.update_battery()
+        else:
+            print("Battery timer already running")
+    
+    def update_battery(self):
+        """Update the battery level - discharge based on system power levels, charge based on solar panel status"""
+        if not self.battery_timer_running:
+            return
+            
+        # Ensure station_power exists in player data
+        if "station_power" not in self.player_data:
+            self.player_data["station_power"] = {
+                "battery_level": 25.0,
+                "solar_charging": False,
+                "last_update_time": datetime.datetime.now().isoformat(),
+                "system_levels": {
+                    "life_support": 10,
+                    "hallway_lighting": 5,
+                    "security_systems": 7,
+                    "communication_array": 5
+                },
+                "power_mode": "balanced"
+            }
+        
+        try:
+            # Get the last update time
+            last_update = datetime.datetime.fromisoformat(self.player_data["station_power"]["last_update_time"])
+            now = datetime.datetime.now()
+            elapsed_seconds = (now - last_update).total_seconds()
+            
+            # Get system power levels from player data
+            system_levels = self.player_data["station_power"]["system_levels"]
+            
+            # Define power consumption rates for each system at max level (level 10)
+            # Values represent % battery drain per minute at max setting
+            system_power_rates = {
+                "life_support": 0.5,         # Higher power consumption
+                "hallway_lighting": 0.3,     # Medium power consumption
+                "security_systems": 0.3,     # Medium power consumption
+                "communication_array": 0.2    # Lower power consumption
+            }
+            
+            # Calculate total discharge rate based on system levels
+            # When level is 0, the system draws no power
+            # When level is 10, the system draws maximum power
+            # Linear scale in between
+            total_discharge_rate = 0
+            for system, base_rate in system_power_rates.items():
+                system_level = system_levels.get(system, 0)
+                # Scale the power consumption by the system level (0-10)
+                if system_level > 0:
+                    system_discharge = (base_rate * system_level / 10.0) * (elapsed_seconds / 60)
+                    total_discharge_rate += system_discharge
+                    
+            # Debug print
+            # print(f"Power draw - Life support: {system_levels.get('life_support', 0)}/10, "
+            #       f"Lighting: {system_levels.get('hallway_lighting', 0)}/10, "
+            #       f"Security: {system_levels.get('security_systems', 0)}/10, "
+            #       f"Comms: {system_levels.get('communication_array', 0)}/10")
+            
+            # If solar charging is active, calculate charging rate based on "sun position"
+            # Simple model: charge 3% per minute during peak hours, less during other times
+            if self.player_data["station_power"]["solar_charging"]:
+                # Use the current hour to simulate sun position (0-23)
+                hour = now.hour
+                
+                # Peak solar hours are 10am to 2pm (10-14), moderate 7am-10am and 2pm-5pm (7-10, 14-17)
+                if 10 <= hour < 14:
+                    charge_multiplier = 1.0  # Peak efficiency
+                elif (7 <= hour < 10) or (14 <= hour < 17):
+                    charge_multiplier = 0.6  # Moderate efficiency
+                elif (6 <= hour < 7) or (17 <= hour < 18):
+                    charge_multiplier = 0.3  # Low efficiency
+                else:
+                    charge_multiplier = 0.1  # Minimal efficiency (moonlight/starlight)
+                
+                # Calculate charge rate (% per minute)
+                charge_rate = (elapsed_seconds / 60) * 3 * charge_multiplier
+            else:
+                charge_rate = 0
+            
+            # Net change to battery level
+            net_change = charge_rate - total_discharge_rate
+            
+            # Update battery level
+            current_level = self.player_data["station_power"]["battery_level"]
+            new_level = max(0, min(100, current_level + net_change))
+            
+            # Debug print for battery changes
+            print(f"Battery update: {current_level:.2f}% -> {new_level:.2f}%, Solar: {self.player_data['station_power']['solar_charging']}, Net Change: {net_change:.4f}% (Charge: {charge_rate:.4f}%, Discharge: {total_discharge_rate:.4f}%)")
+            
+            # Update player data with new battery level
+            self.player_data["station_power"]["battery_level"] = new_level
+            self.player_data["station_power"]["last_update_time"] = now.isoformat()
+            
+            # Check oxygen levels based on life support setting
+            self.check_life_support_status(elapsed_seconds)
+            
+            # If battery level reaches critical point, trigger effects
+            if 0 < new_level <= 10:
+                # Flash warning messages occasionally when battery is low
+                if random.random() < 0.2:  # 20% chance on each check
+                    self.show_low_power_warning()
+            elif new_level <= 0:
+                # Battery completely drained - trigger power outage
+                self.trigger_power_outage()
+            
+            # Lights are affected when battery level is low
+            if current_level > 10 and new_level <= 10:
+                # Transition to low power lighting
+                self.update_corridor_lighting(low_power=True)
+            elif current_level <= 10 and new_level > 10:
+                # Transition back to normal lighting
+                self.update_corridor_lighting(low_power=False)
+        except Exception as e:
+            print(f"Error updating battery: {e}")
+            # Reset the timer in case of error
+            self.player_data["station_power"]["last_update_time"] = datetime.datetime.now().isoformat()
+        
+        # Schedule next update in 2 seconds (was 5 seconds) to make changes more apparent
+        self.battery_timer_id = self.root.after(2000, self.update_battery)
+    
+    def check_life_support_status(self, elapsed_seconds):
+        """Check life support status and apply oxygen damage if necessary"""
+        try:
+            # Get life support level
+            life_support_level = self.player_data["station_power"]["system_levels"].get("life_support", 10)
+            
+            # If life support is off or critically low, apply oxygen damage
+            if life_support_level == 0:
+                # Oxygen damage rate: 10% per minute (or about 0.167% per second)
+                oxygen_damage_rate = (elapsed_seconds * 0.167)
+                
+                # Add oxygen damage - cap incremental damage to prevent huge jumps
+                current_oxygen_damage = self.player_data["damage"].get("oxygen", 0)
+                # Limit max damage per update to 10% to prevent sudden large jumps
+                max_damage_per_update = 10.0
+                oxygen_damage_rate = min(oxygen_damage_rate, max_damage_per_update)
+                
+                # Debug output
+                print(f"Oxygen damage: Current={current_oxygen_damage:.1f}%, Adding={oxygen_damage_rate:.1f}% (elapsed={elapsed_seconds:.1f}s)")
+                
+                new_oxygen_damage = min(100, current_oxygen_damage + oxygen_damage_rate)
+                self.player_data["damage"]["oxygen"] = new_oxygen_damage
+                
+                # Show warnings at certain thresholds
+                if current_oxygen_damage < 30 and new_oxygen_damage >= 30:
+                    self.show_oxygen_warning(30)
+                elif current_oxygen_damage < 60 and new_oxygen_damage >= 60:
+                    self.show_oxygen_warning(60)
+                elif current_oxygen_damage < 90 and new_oxygen_damage >= 90:
+                    self.show_oxygen_warning(90)
+                
+                # Check if the player has died from oxygen deprivation
+                if new_oxygen_damage >= 100:
+                    self.handle_oxygen_death()
+            elif life_support_level < 5:
+                # Low life support causes slow oxygen damage
+                oxygen_damage_rate = (elapsed_seconds * 0.05)  # 5% per minute
+                # Limit max damage per update
+                oxygen_damage_rate = min(oxygen_damage_rate, 5.0)
+                
+                # Add oxygen damage
+                current_oxygen_damage = self.player_data["damage"].get("oxygen", 0)
+                new_oxygen_damage = min(100, current_oxygen_damage + oxygen_damage_rate)
+                self.player_data["damage"]["oxygen"] = new_oxygen_damage
+            else:
+                # Life support is functional, slowly recover from oxygen damage
+                if self.player_data["damage"].get("oxygen", 0) > 0:
+                    # Recover at 5% per minute (0.083% per second)
+                    recovery_rate = min(self.player_data["damage"]["oxygen"], elapsed_seconds * 0.083)
+                    self.player_data["damage"]["oxygen"] -= recovery_rate
+        except Exception as e:
+            print(f"Error checking life support status: {e}")
+            
+    def show_oxygen_warning(self, threshold):
+        """Show a warning about oxygen levels"""
+        warnings = {
+            30: "You're feeling light-headed and having difficulty breathing. Oxygen levels are dropping.",
+            60: "Your vision is beginning to blur and you're experiencing severe difficulty breathing. Oxygen deprivation is worsening.",
+            90: "You're on the verge of losing consciousness. Severe oxygen deprivation detected. Immediate action required."
+        }
+        
+        try:
+            window = self.root.focus_get()
+            if window:
+                messagebox.showwarning("Oxygen Warning", warnings[threshold], parent=window)
+            else:
+                messagebox.showwarning("Oxygen Warning", warnings[threshold], parent=self.root)
+                
+            # Add note about oxygen damage
+            self.add_note(f"Suffered {threshold}% oxygen damage due to life support failure.")
+        except Exception as e:
+            print(f"Error showing oxygen warning: {e}")
+            
+    def handle_oxygen_death(self):
+        """Handle player death from oxygen deprivation"""
+        try:
+            # Show death message
+            messagebox.showerror("CRITICAL: Oxygen Depleted", 
+                              "You have succumbed to oxygen deprivation. Emergency medical protocols have been activated, and you have been revived at minimal health levels.",
+                              parent=self.root)
+            
+            # Reset oxygen damage
+            self.player_data["damage"]["oxygen"] = 50
+            
+            # Set all limbs to critical levels
+            for limb in self.player_data["limbs"]:
+                self.player_data["limbs"][limb] = 20
+                
+            # Add note about near-death
+            self.add_note("CRITICAL EVENT: Nearly died from oxygen deprivation. Emergency medical systems intervened.")
+            
+            # Return player to quarters
+            self.player_data["location"] = {"x": 0, "y": 0}
+            self.show_room()
+        except Exception as e:
+            print(f"Error handling oxygen death: {e}")
+    
+    def show_low_power_warning(self):
+        """Show warning about low battery power"""
+        try:
+            window = self.root.focus_get()
+            if window:
+                messagebox.showwarning("Low Power Warning", 
+                                     "Warning: Station battery power low. Emergency lighting active. Please activate solar panels.",
+                                     parent=window)
+        except:
+            # Fall back to main window if there's an error
+            messagebox.showwarning("Low Power Warning", 
+                                 "Warning: Station battery power low. Emergency lighting active. Please activate solar panels.",
+                                 parent=self.root)
+    
+    def trigger_power_outage(self):
+        """Trigger effects of a complete power outage"""
+        try:
+            # Set battery to minimum level to prevent multiple outage triggers
+            self.player_data["station_power"]["battery_level"] = 0.1
+            
+            window = self.root.focus_get()
+            if window:
+                messagebox.showerror("Power Outage", 
+                                   "CRITICAL: Station power failure! Emergency systems active. Activate solar arrays immediately!",
+                                   parent=window)
+            else:
+                messagebox.showerror("Power Outage", 
+                                   "CRITICAL: Station power failure! Emergency systems active. Activate solar arrays immediately!",
+                                   parent=self.root)
+            
+            # Update corridor lighting to emergency mode
+            self.update_corridor_lighting(emergency=True)
+            
+            # Add a note about the power failure
+            self.add_note("CRITICAL: Station suffered complete power failure. Emergency systems active.")
+            
+        except Exception as e:
+            print(f"Error handling power outage: {e}")
+    
+    def update_corridor_lighting(self, low_power=False, emergency=False):
+        """Update the lighting in corridors based on power status"""
+        # This would update the visual appearance of hallways 
+        # For now we'll just print a message to see the feature working
+        if emergency:
+            print("Station lighting switched to emergency backup power - red emergency lights only")
+            # In a real implementation, you would change the background color to dark red
+            # You could also modify the description of hallways
+        elif low_power:
+            print("Station lighting dimmed to conserve power")
+            # In a real implementation, you would change the hallway background to a darker shade
+        else:
+            print("Station lighting restored to normal levels")
+            # In a real implementation, you would restore normal hallway appearance
     
     def run_stock_market(self):
         """Run the stock market in the background"""
@@ -209,7 +536,12 @@ class SpaceStationGame:
                 
                 # Update cycle and day numbers
                 self.stock_cycle_number += 1
-                self.stock_day_number = (self.stock_cycle_number // 5) + 1
+                
+                # Check if we completed a full cycle (1-5)
+                if self.stock_cycle_number > 5:
+                    # Reset cycle to 1 and increment day
+                    self.stock_cycle_number = 1
+                    self.stock_day_number += 1
                 
                 # Update last update time
                 self.last_update_time = now
@@ -222,7 +554,7 @@ class SpaceStationGame:
                 self.process_pending_trades()
                 
                 # Log market update
-                print(f"Market updated: Cycle {self.stock_cycle_number}, Day {self.stock_day_number}")
+                # print(f"Market updated: Cycle {self.stock_cycle_number}, Day {self.stock_day_number}")
             
             # Sleep for 1 second before checking again
             time.sleep(1)
@@ -360,6 +692,11 @@ class SpaceStationGame:
         return int(remaining)
     
     def show_main_menu(self):
+        # Unbind mousewheel if it was bound
+        if hasattr(self.root, 'mousewheel_bound') and self.root.mousewheel_bound:
+            self.root.unbind_all("<MouseWheel>")
+            self.root.mousewheel_bound = False
+        
         # Stop the market thread when returning to main menu
         self.stop_market_thread()
         
@@ -497,8 +834,15 @@ class SpaceStationGame:
         self.player_data["name"] = player_name
         self.player_data["job"] = self.job_var.get()
         self.player_data["inventory"] = []
-        self.player_data["location"] = {"x": 0, "y": 0}
+        self.player_data["location"] = {"x": -1, "y": 0}
         self.player_data["stock_holdings"] = {}
+        
+        # Initialize damage stats
+        self.player_data["damage"] = {
+            "burn": 0,
+            "poison": 0,
+            "oxygen": 0
+        }
         
         # Set starting credits based on job
         job = self.job_var.get()
@@ -570,7 +914,7 @@ class SpaceStationGame:
         # Initialize stock market with starting values
         if "stock_market" not in self.player_data:
             self.player_data["stock_market"] = {
-                "cycle_number": 0,
+                "cycle_number": 1,
                 "day_number": 1,
                 "last_update_time": datetime.datetime.now().isoformat(),
                 "companies": [],
@@ -587,6 +931,21 @@ class SpaceStationGame:
                     "owned_shares": 0
                 })
         
+        # Initialize station power - Solar panels default ON unless player can control them
+        can_control_power = job in ["Engineer", "Captain"]
+        self.player_data["station_power"] = {
+            "battery_level": 25.0,
+            "solar_charging": not can_control_power,  # True if player can't control, False otherwise
+            "last_update_time": datetime.datetime.now().isoformat(),
+            "system_levels": {
+                "life_support": 10,
+                "hallway_lighting": 5,
+                "security_systems": 7,
+                "communication_array": 5
+            },
+            "power_mode": "balanced"
+        }
+        
         # Create or save character file 
         self.save_and_start()
     
@@ -596,7 +955,7 @@ class SpaceStationGame:
         self.update_market_data()
         
         # Create saves directory if it doesn't exist
-        saves_path = os.path.join(self.base_path, "saves")
+        saves_path = os.path.join(self.base_path, "game", "saves")
         os.makedirs(saves_path, exist_ok=True)
         
         # Save game to JSON file
@@ -610,6 +969,9 @@ class SpaceStationGame:
         # Start the market thread
         self.start_market_thread()
         
+        # Start the battery timer
+        self.start_battery_timer()
+        
         # Show room
         self.show_room()
     
@@ -617,6 +979,10 @@ class SpaceStationGame:
         # Clear the window
         for widget in self.root.winfo_children():
             widget.destroy()
+        
+        # Ensure market thread is running
+        if not self.market_running:
+            self.start_market_thread()
         
         # Title
         room_label = tk.Label(self.root, text="Your Quarters", font=("Arial", 24), bg="black", fg="white")
@@ -673,6 +1039,13 @@ class SpaceStationGame:
         for widget in self.root.winfo_children():
             widget.destroy()
         
+        # Ensure market thread is running
+        if not self.market_running:
+            self.start_market_thread()
+        
+        # Configure window size
+        self.root.geometry("800x700")  # Increased height to accommodate all content
+        
         # Title
         title_label = tk.Label(self.root, text="Character Sheet", font=("Arial", 24), bg="black", fg="white")
         title_label.pack(pady=20)
@@ -714,8 +1087,50 @@ class SpaceStationGame:
                             font=("Arial", 12), width=15, command=self.show_notes_popup)
         notes_btn.pack(side=tk.LEFT, padx=5, pady=5)
         
+        # Damage section - for non-limb specific damage
+        damage_label = tk.Label(info_frame, text="Overall Damage:", font=("Arial", 14), bg="black", fg="white")
+        damage_label.pack(anchor="w", padx=10, pady=5)
+        
+        # Create a frame for overall damage types
+        damage_frame = tk.Frame(info_frame, bg="black")
+        damage_frame.pack(fill=tk.X, padx=20, pady=5)
+        
+        # Show overall damage types
+        damage_types = [
+            {"name": "Burn", "key": "burn", "icon": "🔥"},
+            {"name": "Poison", "key": "poison", "icon": "☣️"},
+            {"name": "Oxygen", "key": "oxygen", "icon": "💨"}
+        ]
+        
+        for damage_type in damage_types:
+            damage_value = self.player_data["damage"].get(damage_type["key"], 0)
+            
+            # Color based on damage level
+            color = "green" if damage_value < 10 else "yellow" if damage_value < 30 else "orange" if damage_value < 60 else "red"
+            
+            # Create frame for this damage type
+            type_frame = tk.Frame(damage_frame, bg="black")
+            type_frame.pack(anchor="w", fill=tk.X, pady=2)
+            
+            # Icon and name
+            type_label = tk.Label(type_frame, text=f"{damage_type['icon']} {damage_type['name']}: ", 
+                               font=("Arial", 12), bg="black", fg="white")
+            type_label.pack(side=tk.LEFT, padx=5)
+            
+            # Damage value with color
+            value_label = tk.Label(type_frame, text=f"{damage_value:.1f}%", 
+                                font=("Arial", 12), bg="black", fg=color)
+            value_label.pack(side=tk.LEFT)
+            
+            # Description of effects
+            if damage_value >= 30:
+                effect_text = "Severe" if damage_value >= 70 else "Moderate" if damage_value >= 50 else "Mild"
+                effect_label = tk.Label(type_frame, text=f" - {effect_text} effects", 
+                                     font=("Arial", 12, "italic"), bg="black", fg=color)
+                effect_label.pack(side=tk.LEFT, padx=5)
+        
         # Limb health - horizontal layout
-        limb_label = tk.Label(info_frame, text="Limb Health:", font=("Arial", 14), bg="black", fg="white")
+        limb_label = tk.Label(info_frame, text="Limb Health (Blunt Damage):", font=("Arial", 14), bg="black", fg="white")
         limb_label.pack(anchor="w", padx=10, pady=5)
         
         # Create a frame for the horizontal limb health display
@@ -764,13 +1179,29 @@ class SpaceStationGame:
                                          font=("Arial", 12), bg="black", fg=color)
                 limb_health_label.pack(side=tk.LEFT)
         
+        # Overall health calculation
+        overall_label = tk.Label(info_frame, text="Overall Health:", font=("Arial", 14), bg="black", fg="white")
+        overall_label.pack(anchor="w", padx=10, pady=5)
+        
+        # Calculate overall health as an average of limb health and damage types
+        limb_health = sum(self.player_data["limbs"].values()) / len(self.player_data["limbs"])
+        damage_health = 100 - (sum(self.player_data["damage"].values()) / len(self.player_data["damage"]))
+        overall_health = (limb_health + damage_health) / 2
+        
+        # Color based on overall health
+        overall_color = "green" if overall_health > 75 else "yellow" if overall_health > 40 else "red"
+        
+        overall_health_label = tk.Label(info_frame, text=f"{overall_health:.1f}%", 
+                                     font=("Arial", 16, "bold"), bg="black", fg=overall_color)
+        overall_health_label.pack(anchor="w", padx=10, pady=5)
+        
         # Store the previous screen to return to
         self.previous_screen = getattr(self, 'previous_screen', 'show_room')
         
         # Return button that goes back to the previous screen
         return_btn = tk.Button(self.root, text="Return", font=("Arial", 14), width=15, 
                              command=lambda: getattr(self, self.previous_screen)())
-        return_btn.pack(pady=20)
+        return_btn.pack(pady=30)  # Increased padding to ensure button is visible
     
     def show_notes_popup(self):
         """Show a popup window with the player's notes"""
@@ -1172,7 +1603,7 @@ class SpaceStationGame:
         self.update_market_data()
         
         # Create saves directory if it doesn't exist
-        saves_path = os.path.join(self.base_path, "saves")
+        saves_path = os.path.join(self.base_path, "game", "saves")
         os.makedirs(saves_path, exist_ok=True)
         
         # Save game to JSON file
@@ -1344,6 +1775,10 @@ class SpaceStationGame:
         for widget in self.root.winfo_children():
             widget.destroy()
         
+        # Ensure market thread is running
+        if not self.market_running:
+            self.start_market_thread()
+        
         # Title
         computer_label = tk.Label(self.root, text="Computer Terminal", font=("Arial", 24), bg="black", fg="white")
         computer_label.pack(pady=30)
@@ -1398,9 +1833,16 @@ class SpaceStationGame:
         self.show_computer()
     
     def use_door(self):
-        # Set initial location when leaving quarters
-        self.player_data["location"] = {"x": 0, "y": 0}
-        self.show_hallway()
+        # Get current location
+        x = self.player_data["location"]["x"]
+        y = self.player_data["location"]["y"]
+        
+        if x == -1 and y == 0:  # In quarters, move to hallway
+            self.player_data["location"] = {"x": 0, "y": 0}
+            self.show_hallway()
+        else:  # In hallway, move to quarters
+            self.player_data["location"] = {"x": -1, "y": 0}
+            self.show_room()
     
     def get_location_key(self):
         x = self.player_data["location"]["x"]
@@ -1411,8 +1853,18 @@ class SpaceStationGame:
         # Clear the window
         for widget in self.root.winfo_children():
             widget.destroy()
+            
+        # Ensure market thread is running
+        if not self.market_running:
+            self.start_market_thread()
         
         # Get current location
+        x = self.player_data["location"]["x"]
+        y = self.player_data["location"]["y"]
+        
+        # Store previous position for backtracking
+        self.previous_position = (x, y)
+        
         loc_key = self.get_location_key()
         
         if loc_key not in self.ship_map:
@@ -1437,22 +1889,55 @@ class SpaceStationGame:
             self.show_hallway()
             return
         
+        # Get battery level for lighting effects
+        battery_level = 100.0  # Default to full power
+        if "station_power" in self.player_data:
+            battery_level = self.player_data["station_power"].get("battery_level", 100.0)
+        
+        # Set background color based on battery level
+        hallway_bg = "black"  # Default
+        desc_fg = "white"     # Default text color
+        
+        if battery_level <= 5:
+            # Critical - emergency red lighting only
+            hallway_bg = "#220000"  # Very dark red
+            desc_fg = "#FF5555"     # Bright red text
+        elif battery_level <= 15:
+            # Low power - dim lighting
+            hallway_bg = "#111111"  # Very dark gray
+            desc_fg = "#BBBBBB"     # Light gray text
+        
+        # Set window background
+        self.root.configure(bg=hallway_bg)
+        
         # Title
-        hallway_label = tk.Label(self.root, text=location["name"], font=("Arial", 24), bg="black", fg="white")
+        hallway_label = tk.Label(self.root, text=location["name"], font=("Arial", 24), bg=hallway_bg, fg="white")
         hallway_label.pack(pady=30)
         
-        # Description
-        desc_label = tk.Label(self.root, text=location["desc"], 
-                             font=("Arial", 12), bg="black", fg="white", wraplength=600)
+        # Description with power status info
+        base_desc = location["desc"]
+        
+        # Add lighting condition to the description
+        if battery_level <= 5:
+            power_desc = "\n\nEmergency lighting casts an eerie red glow. Most systems are offline."
+        elif battery_level <= 15:
+            power_desc = "\n\nThe lights are dimmed to conserve power."
+        else:
+            power_desc = ""
+            
+        full_desc = base_desc + power_desc
+        
+        desc_label = tk.Label(self.root, text=full_desc, font=("Arial", 12), 
+                           bg=hallway_bg, fg=desc_fg, wraplength=600)
         desc_label.pack(pady=10)
         
         # Location info
         coords_label = tk.Label(self.root, text=f"Location: {self.player_data['location']['x']} North, {self.player_data['location']['y']} East", 
-                             font=("Arial", 10), bg="black", fg="white")
+                               font=("Arial", 10), bg=hallway_bg, fg=desc_fg)
         coords_label.pack(pady=5)
         
-        # Navigation buttons
-        nav_frame = tk.Frame(self.root, bg="black")
+        # Navigation controls
+        nav_frame = tk.Frame(self.root, bg=hallway_bg)
         nav_frame.pack(pady=20)
         
         # Determine available directions
@@ -1620,8 +2105,8 @@ class SpaceStationGame:
         
         # Only show return to quarters at the starting junction
         if x == 0 and y == 0:
-            quarters_btn = tk.Button(nav_frame, text="Return to Quarters", font=("Arial", 14), width=15,
-                                   command=self.show_room)
+            quarters_btn = tk.Button(nav_frame, text="Quarters", font=("Arial", 14), width=15,
+                                   command=self.use_door)
             quarters_btn.grid(row=3, column=1, columnspan=1, padx=10, pady=20)
         
         # Character sheet button
@@ -1635,11 +2120,27 @@ class SpaceStationGame:
         save_btn.pack(pady=10)
     
     def show_character_sheet_hallway(self):
+        # Save the current location so we can return to it later
+        self.before_character_sheet_location = {
+            "x": self.player_data["location"]["x"],
+            "y": self.player_data["location"]["y"]
+        }
+        
         # Set the previous screen to hallway before showing character sheet
-        self.previous_screen = "show_hallway"
+        self.previous_screen = "return_to_hallway"
         
         # Show character sheet
         self.show_character_sheet()
+        
+    def return_to_hallway(self):
+        """Return to the hallway from character sheet at the original location"""
+        # Restore the original location before showing hallway
+        if hasattr(self, 'before_character_sheet_location'):
+            self.player_data["location"]["x"] = self.before_character_sheet_location["x"]
+            self.player_data["location"]["y"] = self.before_character_sheet_location["y"]
+        
+        # Show the hallway
+        self.show_hallway()
     
     def move_direction(self, direction):
         """Move in the specified direction with random event chance"""
@@ -1701,13 +2202,34 @@ class SpaceStationGame:
             {"type": "neutral", "title": "Announcement", "desc": "The station PA system makes an announcement.", "effect": lambda: self.station_announcement()},
             {"type": "neutral", "title": "Maintenance", "desc": "A maintenance drone passes by, cleaning the hallway.", "effect": lambda: None},
             
-            # Bad events
-            {"type": "bad", "title": "Lost Credits", "desc": "You dropped some credits and couldn't find them all.", "effect": lambda: self.lose_credits(random.randint(10, 50))},
-            {"type": "bad", "title": "Small Explosion", "desc": "A nearby conduit explodes, showering you with hot sparks!", "effect": lambda: self.damage_random_limb(10, 25)},
-            {"type": "bad", "title": "Slip and Fall", "desc": "You slipped on a wet floor and fell hard.", "effect": lambda: self.damage_random_limb(5, 15)},
-            {"type": "bad", "title": "Steam Leak", "desc": "A pipe bursts, releasing scalding steam that burns your arm!", "effect": lambda: self.damage_limb("left_arm", 10, 30)},
-            {"type": "bad", "title": "Falling Debris", "desc": "A ceiling panel breaks loose and hits your head!", "effect": lambda: self.damage_limb("head", 15, 35)},
-            {"type": "bad", "title": "Maintenance Accident", "desc": "Your leg gets caught in an open floor grate!", "effect": lambda: self.damage_limb("right_leg", 10, 20)}
+            # Bad events - now all include blunt damage
+            {"type": "bad", "title": "Lost Credits", "desc": "You dropped some credits and couldn't find them all. You bumped your head looking for them.", 
+              "effect": lambda: self.combined_effect([
+                  lambda: self.lose_credits(random.randint(10, 50)),
+                  lambda: self.damage_limb("head", 5, 10)
+              ])},
+            {"type": "bad", "title": "Small Explosion", "desc": "A nearby conduit explodes, showering you with hot sparks and debris!", 
+              "effect": lambda: self.combined_effect([
+                  lambda: self.damage_random_limb(10, 25),  # Blunt damage from impact
+                  lambda: self.add_burn_damage(5, 15)       # Burn damage from sparks
+              ])},
+            {"type": "bad", "title": "Slip and Fall", "desc": "You slipped on a wet floor and fell hard.", 
+              "effect": lambda: self.damage_random_limb(10, 20)},
+            {"type": "bad", "title": "Steam Leak", "desc": "A pipe bursts, releasing scalding steam that burns your arm!", 
+              "effect": lambda: self.combined_effect([
+                  lambda: self.damage_limb("left_arm", 5, 10),  # Blunt damage from impact
+                  lambda: self.add_burn_damage(15, 30)          # Burn damage from steam
+              ])},
+            {"type": "bad", "title": "Falling Debris", "desc": "A ceiling panel breaks loose and hits your head!", 
+              "effect": lambda: self.damage_limb("head", 15, 35)},
+            {"type": "bad", "title": "Maintenance Accident", "desc": "Your leg gets caught in an open floor grate!", 
+              "effect": lambda: self.damage_limb("right_leg", 10, 20)},
+            {"type": "bad", "title": "Chemical Spill", "desc": "You walk through a chemical spill! Your leg is burned and you feel ill.", 
+              "effect": lambda: self.combined_effect([
+                  lambda: self.damage_limb("left_leg", 5, 10),    # Blunt damage from slipping
+                  lambda: self.add_burn_damage(5, 15),            # Burn damage from chemicals
+                  lambda: self.add_poison_damage(10, 20)          # Poison damage from fumes
+              ])}
         ]
         
         # Pick a random event
@@ -1719,6 +2241,11 @@ class SpaceStationGame:
         # Apply the effect
         event["effect"]()
     
+    def combined_effect(self, effect_functions):
+        """Apply multiple effects in sequence"""
+        for effect_fn in effect_functions:
+            effect_fn()
+    
     def damage_random_limb(self, min_damage, max_damage):
         """Damage a random limb by a random amount"""
         # Get a random limb
@@ -1726,7 +2253,7 @@ class SpaceStationGame:
         self.damage_limb(limb, min_damage, max_damage)
     
     def damage_limb(self, limb, min_damage, max_damage):
-        """Damage a specific limb by a random amount within range"""
+        """Damage a specific limb by a random amount within range (blunt damage)"""
         if limb in self.player_data["limbs"]:
             # Calculate damage
             damage = random.randint(min_damage, max_damage)
@@ -1739,10 +2266,10 @@ class SpaceStationGame:
             limb_name = limb.replace('_', ' ').title()
             
             # Show damage message
-            messagebox.showinfo("Injury", f"Your {limb_name} took {damage}% damage and is now at {self.player_data['limbs'][limb]}%.")
+            messagebox.showinfo("Blunt Injury", f"Your {limb_name} took {damage}% blunt damage and is now at {self.player_data['limbs'][limb]}%.")
             
             # Add note about the injury
-            self.add_note(f"Injured {limb_name}: Took {damage}% damage (from {original_health}% to {self.player_data['limbs'][limb]}%)")
+            self.add_note(f"Suffered blunt damage to {limb_name}: Took {damage}% damage (from {original_health}% to {self.player_data['limbs'][limb]}%)")
     
     def add_credits(self, amount):
         """Add credits to the player"""
@@ -1771,7 +2298,7 @@ class SpaceStationGame:
         load_label.pack(pady=30)
         
         # Check if saves directory exists
-        saves_path = os.path.join(self.base_path, "saves")
+        saves_path = os.path.join(self.base_path, "game", "saves") # Updated path
         os.makedirs(saves_path, exist_ok=True)
         
         # Get save files
@@ -1781,75 +2308,160 @@ class SpaceStationGame:
             no_saves_label = tk.Label(self.root, text="No saved games found.", font=("Arial", 14), bg="black", fg="white")
             no_saves_label.pack(pady=20)
         else:
-            saves_frame = tk.Frame(self.root, bg="black")
-            saves_frame.pack(pady=20)
+            # Create a frame to hold the canvas and scrollbar
+            container_frame = tk.Frame(self.root, bg="black")
+            container_frame.pack(pady=20, fill=tk.BOTH, expand=True)
             
+            # Create a canvas to make the content scrollable
+            canvas = tk.Canvas(container_frame, bg="black", highlightthickness=0)
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            
+            # Add a scrollbar to the container
+            scrollbar = tk.Scrollbar(container_frame, orient=tk.VERTICAL, command=canvas.yview)
+            # Scrollbar initially packed, will be unpacked if not needed
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            
+            # Configure the canvas to use the scrollbar
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Create a frame inside the canvas to hold the save buttons
+            saves_frame = tk.Frame(canvas, bg="black")
+            
+            # Add the saves_frame to the canvas
+            canvas_frame = canvas.create_window((0, 0), window=saves_frame, anchor="nw")
+            
+            # Add save buttons to the saves_frame
             for save_file in save_files:
-                # Strip .json extension for display
+                # Strip .json extension for display and passing to load function
                 player_name = save_file[:-5]
                 
                 save_btn = tk.Button(saves_frame, text=player_name, font=("Arial", 14), width=20,
-                                     command=lambda file=save_file: self.load_game(file))
+                                     command=lambda name=player_name: self.load_game_file(name)) # Use load_game_file with base name
                 save_btn.pack(pady=5)
+            
+            # Update the scrollregion when the size of saves_frame changes
+            def configure_scroll_region(event):
+                canvas.configure(scrollregion=canvas.bbox("all"))
+                
+                # Check if scrolling is needed and enable/disable the scrollbar
+                if saves_frame.winfo_height() > canvas.winfo_height():
+                    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)  # Ensure scrollbar is visible
+                    # Enable scrolling if not already bound
+                    if not hasattr(self.root, 'mousewheel_bound') or not self.root.mousewheel_bound:
+                        canvas.bind_all("<MouseWheel>", on_mousewheel)
+                        self.root.mousewheel_bound = True
+                else:
+                    scrollbar.pack_forget()  # Hide scrollbar
+                    # Disable scrolling if bound
+                    if hasattr(self.root, 'mousewheel_bound') and self.root.mousewheel_bound:
+                        self.root.unbind_all("<MouseWheel>")
+                        self.root.mousewheel_bound = False
+            
+            saves_frame.bind("<Configure>", configure_scroll_region)
+            
+            # Make sure canvas width matches container width
+            def set_canvas_width(event):
+                canvas_width = event.width
+                canvas.itemconfig(canvas_frame, width=canvas_width)
+            
+            canvas.bind("<Configure>", set_canvas_width)
+            
+            # Bind mousewheel to scroll
+            def on_mousewheel(event):
+                # Only scroll if there's content that requires scrolling
+                if saves_frame.winfo_height() > canvas.winfo_height():
+                    canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            # Initialize mousewheel state
+            self.root.mousewheel_bound = False
+            # Configure scroll region initially to determine if scrollbar/binding is needed
+            saves_frame.update_idletasks() 
+            configure_scroll_region(None) # Manually call once to set initial state
         
         # Back button
         back_btn = tk.Button(self.root, text="Back", font=("Arial", 14), width=15, command=self.show_main_menu)
         back_btn.pack(pady=20)
     
-    def load_game(self, save_file):
-        try:
-            saves_path = os.path.join(self.base_path, "saves")
-            with open(os.path.join(saves_path, save_file), "r") as f:
-                self.player_data = json.load(f)
+    def load_game_file(self, filename):
+        """Load a saved game from file"""
+        # Remove .json extension if present (though it should be passed without it now)
+        if filename.endswith(".json"):
+            filename = filename[:-5]
             
-            # Load market data
+        # Load game data from the correct path
+        file_path = os.path.join(self.base_path, "game", "saves", filename + ".json") # Updated path
+        try:
+            with open(file_path, "r") as f:
+                self.player_data = json.load(f)
+                
+            # Update company data from saved game
             self.load_market_data()
             
             # Start the market thread
             self.start_market_thread()
             
-            # Check if player was in hallway when saved
-            if "location" in self.player_data and (self.player_data["location"]["x"] > 0 or self.player_data["location"]["y"] > 0):
-                self.show_hallway()
+            # Start the battery timer
+            self.start_battery_timer()
+            
+            # Determine where to show the player based on saved location
+            if "location" in self.player_data:
+                x = self.player_data["location"].get("x", 0)
+                y = self.player_data["location"].get("y", 0)
+                
+                # Check if player is in a special room or hallway
+                if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3) or (x == 0 and y == -1) or (x == 3 and y == -1):
+                    # Player was in a special room, return to hallway entrance
+                    self.update_player_data_from_room(self.player_data) # Use the callback logic to place player correctly
+                elif x == -1 and y == 0:
+                    # Player was in quarters
+                    self.show_room()
+                else:
+                    # Player was in a hallway
+                    self.show_hallway()
             else:
-                # Default to quarters if location not specified or at origin
-                if "location" not in self.player_data:
-                    self.player_data["location"] = {"x": 0, "y": 0}
+                # Default to quarters if location is missing
+                self.player_data["location"] = {"x": -1, "y": 0}
                 self.show_room()
+            
+            return True
+        except FileNotFoundError:
+            messagebox.showerror("Error", f"Save file not found: {filename}.json")
+            self.show_load_game() # Return to load screen
+            return False
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load game: {str(e)}")
+            messagebox.showerror("Error", f"Failed to load game: {e}")
+            self.show_load_game() # Return to load screen
+            return False
+
+    def add_burn_damage(self, min_damage, max_damage):
+        """Apply burn damage to the player"""
+        # Calculate damage
+        damage = random.randint(min_damage, max_damage)
+        
+        # Apply damage
+        original_damage = self.player_data["damage"].get("burn", 0)
+        self.player_data["damage"]["burn"] = min(100, original_damage + damage)
+        
+        # Show damage message
+        messagebox.showinfo("Burn Damage", f"You suffered {damage}% burn damage! Total burn damage: {self.player_data['damage']['burn']}%.")
+        
+        # Add note about the injury
+        self.add_note(f"Suffered burn damage: Took {damage}% damage (total now {self.player_data['damage']['burn']}%)")
     
-    def get_previous_position(self):
-        """Get the previous position before entering a locked room"""
-        x = self.player_data["location"]["x"]
-        y = self.player_data["location"]["y"]
+    def add_poison_damage(self, min_damage, max_damage):
+        """Apply poison damage to the player"""
+        # Calculate damage
+        damage = random.randint(min_damage, max_damage)
         
-        # Bridge entrance (6,0) -> return to North End (5,0)
-        if x == 6 and y == 0:
-            return 5, 0
-            
-        # MedBay entrance (0,6) -> return to East End (0,5)
-        if x == 0 and y == 6:
-            return 0, 5
-            
-        # Security entrance (6,6) -> return to Northeast Corner (5,5)
-        if x == 6 and y == 6:
-            return 5, 5
-            
-        # Engineering Bay entrance (6,3) -> return to Engineering Bay Entrance (5,3)
-        if x == 6 and y == 3:
-            return 5, 3
-            
-        # Bar entrance (0,-1) -> return to Bar Entrance (0,3)
-        if x == 0 and y == -1:
-            return 0, 3
-            
-        # Botany Lab entrance (3,-1) -> return to Botany Lab Entrance (3,0)
-        if x == 3 and y == -1:
-            return 3, 0
+        # Apply damage
+        original_damage = self.player_data["damage"].get("poison", 0)
+        self.player_data["damage"]["poison"] = min(100, original_damage + damage)
         
-        # Default to junction if something goes wrong
-        return 0, 0
+        # Show damage message
+        messagebox.showinfo("Poison Damage", f"You suffered {damage}% poison damage! Total poison damage: {self.player_data['damage']['poison']}%.")
+        
+        # Add note about the injury
+        self.add_note(f"Suffered poison damage: Took {damage}% damage (total now {self.player_data['damage']['poison']}%)")
 
     def enter_special_room(self, room_name):
         """Enter a special room on the station"""
@@ -1886,6 +2498,14 @@ class SpaceStationGame:
         """Update player data when returning from a room"""
         # Update player data
         self.player_data = updated_data
+        
+        # Ensure market thread is running
+        if not self.market_running:
+            self.start_market_thread()
+            
+        # Ensure battery timer is running
+        if not self.battery_timer_running:
+            self.start_battery_timer()
         
         # Return to the previous position in the hallway
         # (not the room position, which causes loops)
@@ -2062,7 +2682,7 @@ class SpaceStationGame:
         self.update_market_data()
         
         # Create saves directory if it doesn't exist
-        saves_path = os.path.join(self.base_path, "saves")
+        saves_path = os.path.join(self.base_path, "game", "saves")
         os.makedirs(saves_path, exist_ok=True)
         
         # Save game to JSON file
@@ -2070,8 +2690,8 @@ class SpaceStationGame:
         with open(filename, "w") as f:
             json.dump(self.player_data, f, indent=4)
         
-        # Stop the market thread
-        self.stop_market_thread()
+        # Stop the battery timer before returning to menu
+        self.stop_battery_timer()
         
         # Return to main menu
         self.show_main_menu()

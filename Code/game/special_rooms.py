@@ -1209,9 +1209,6 @@ class Engineering:
         self.engineering_window.focus_force()
     
     def access_engineering_station(self):
-        # Show access confirmation for authorized personnel
-        self.engineering_window.after(10, lambda: messagebox.showinfo("Engineering Station", "Access granted. Welcome to the Engineering Station.", parent=self.engineering_window))
-        
         # Clear existing buttons
         for widget in self.button_frame.winfo_children():
             widget.destroy()
@@ -1220,22 +1217,12 @@ class Engineering:
         station_label = tk.Label(self.button_frame, text="Engineering Station Controls", font=("Arial", 16, "bold"), bg="black", fg="white")
         station_label.pack(pady=10)
         
-        # System access buttons
-        power_btn = tk.Button(self.button_frame, text="Power Management", font=("Arial", 14), width=20, command=lambda: messagebox.showinfo("Power Management", "Station power systems are operating within normal parameters.", parent=self.engineering_window))
-        power_btn.pack(pady=5)
-        
-        atmos_btn = tk.Button(self.button_frame, text="Atmosphere Controls", font=("Arial", 14), width=20, command=lambda: messagebox.showinfo("Atmosphere Controls", "Life support systems functioning properly. Oxygen levels: 21%, Pressure: 101 kPa", parent=self.engineering_window))
-        atmos_btn.pack(pady=5)
-        
-        toolbox_btn = tk.Button(self.button_frame, text="Access Toolbox", font=("Arial", 14), width=20, command=self.access_toolbox)
-        toolbox_btn.pack(pady=5)
+        # Direct access to Engineering Panel without the power management and atmosphere buttons
+        engineering_panel_btn = tk.Button(self.button_frame, text="Engineering Panel", font=("Arial", 14), width=20, command=self.access_engineering_panel)
+        engineering_panel_btn.pack(pady=5)
         
         back_btn = tk.Button(self.button_frame, text="Back to Main Menu", font=("Arial", 14), width=20, command=self.show_station_menu)
         back_btn.pack(pady=15)
-        
-        # Make sure the window stays on top after dialog
-        self.engineering_window.after(20, self.engineering_window.lift)
-        self.engineering_window.focus_force()
     
     def access_toolbox(self):
         """Access the engineering toolbox with specialized tools"""
@@ -1373,6 +1360,647 @@ class Engineering:
         # Make sure the window stays on top after dialog
         self.engineering_window.after(20, self.engineering_window.lift)
         self.engineering_window.focus_force()
+    
+    def access_engineering_panel(self):
+        """Access the engineering panel with power controls and station systems"""
+        # Check if user has special access (Engineer or Captain)
+        has_engineering_access = ("permissions" in self.player_data and self.player_data["permissions"].get("engineering_station", False)) or \
+                                (self.player_data.get("job") == "Engineer") or \
+                                (self.player_data.get("job") == "Captain")
+        
+        if has_engineering_access:
+            # Show specialized engineering panel for authorized personnel
+            panel_window = tk.Toplevel(self.engineering_window)
+            panel_window.title("Engineering Panel")
+            panel_window.geometry("600x500")
+            panel_window.configure(bg="black")
+            
+            # Ensure this window stays on top
+            panel_window.transient(self.engineering_window)
+            panel_window.grab_set()
+            
+            # Create main frame for the entire content
+            main_frame = tk.Frame(panel_window, bg="black")
+            main_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # Add a canvas with scrollbar
+            canvas = tk.Canvas(main_frame, bg="black", highlightthickness=0)
+            scrollbar = tk.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = tk.Frame(canvas, bg="black")
+            
+            # Configure scrolling
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack the scrollbar and canvas
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+            canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+            
+            # Title
+            title_label = tk.Label(scrollable_frame, text="Station Engineering Panel", font=("Arial", 18, "bold"), bg="black", fg="white")
+            title_label.pack(pady=15)
+            
+            # Description
+            desc_label = tk.Label(scrollable_frame, text="This panel controls the station's power systems and engineering functions.", 
+                                 font=("Arial", 12), bg="black", fg="white", wraplength=500)
+            desc_label.pack(pady=10)
+            
+            # Battery status section
+            battery_frame = tk.Frame(scrollable_frame, bg="#222222", bd=1, relief=tk.RIDGE)
+            battery_frame.pack(fill=tk.X, padx=20, pady=10)
+            
+            # Initialize battery level in player_data if not present
+            if "station_power" not in self.player_data:
+                self.player_data["station_power"] = {
+                    "battery_level": 25.0,
+                    "solar_charging": False,
+                    "last_update_time": datetime.datetime.now().isoformat()
+                }
+            
+            # Initialize system levels for the sliders if not present
+            if "system_levels" not in self.player_data["station_power"]:
+                self.player_data["station_power"]["system_levels"] = {
+                    "life_support": 10,
+                    "hallway_lighting": 5,
+                    "security_systems": 7,
+                    "communication_array": 5
+                }
+            
+            # Initialize power mode if not present
+            if "power_mode" not in self.player_data["station_power"]:
+                self.player_data["station_power"]["power_mode"] = "balanced"
+            
+            # Battery level display
+            battery_level = self.player_data["station_power"]["battery_level"]
+            battery_label = tk.Label(battery_frame, text="Main Battery Status", font=("Arial", 14, "bold"), 
+                                   bg="#222222", fg="#FFFF00")
+            battery_label.pack(anchor="w", padx=10, pady=5)
+            
+            # Create a frame for the battery bar
+            bar_frame = tk.Frame(battery_frame, bg="#222222")
+            bar_frame.pack(fill=tk.X, padx=10, pady=5)
+            
+            battery_bar_frame = tk.Frame(bar_frame, bg="#333333", height=25, width=300)
+            battery_bar_frame.pack(side=tk.LEFT, padx=5)
+            battery_bar_frame.pack_propagate(False)
+            
+            battery_fill = tk.Frame(battery_bar_frame, bg="#00FF00" if battery_level > 50 else "#FFFF00" if battery_level > 20 else "#FF0000", 
+                                  height=25, width=int(300 * battery_level / 100))
+            battery_fill.place(x=0, y=0)
+            
+            battery_percent = tk.Label(bar_frame, text=f"{battery_level:.1f}%", font=("Arial", 12, "bold"), 
+                                     bg="#222222", fg="white")
+            battery_percent.pack(side=tk.LEFT, padx=10)
+            
+            # Battery status info
+            status_text = "Normal operation" if battery_level > 50 else "Low power mode" if battery_level > 10 else "Critical power level"
+            status_label = tk.Label(battery_frame, text=f"Status: {status_text}", font=("Arial", 12), 
+                                  bg="#222222", fg="white")
+            status_label.pack(anchor="w", padx=10, pady=5)
+            
+            # Show whether solar panels are charging
+            solar_status = "ACTIVE" if self.player_data["station_power"]["solar_charging"] else "INACTIVE"
+            solar_color = "#00FF00" if self.player_data["station_power"]["solar_charging"] else "#FF0000"
+            solar_label = tk.Label(battery_frame, text=f"Solar Charging: {solar_status}", font=("Arial", 12), 
+                                 bg="#222222", fg=solar_color)
+            solar_label.pack(anchor="w", padx=10, pady=5)
+            
+            # Solar panel control section
+            solar_frame = tk.Frame(scrollable_frame, bg="#222222", bd=1, relief=tk.RIDGE)
+            solar_frame.pack(fill=tk.X, padx=20, pady=10)
+            
+            solar_title = tk.Label(solar_frame, text="Solar Panel Control", font=("Arial", 14, "bold"), 
+                                 bg="#222222", fg="#00CCFF")
+            solar_title.pack(anchor="w", padx=10, pady=5)
+            
+            solar_desc = tk.Label(solar_frame, text="Control the deployment and charging state of the station's solar array.", 
+                                font=("Arial", 12), bg="#222222", fg="white", wraplength=500)
+            solar_desc.pack(anchor="w", padx=10, pady=5)
+            
+            # Function to update battery display
+            def update_battery_display():
+                # Get current battery level
+                battery_level = self.player_data["station_power"]["battery_level"]
+                
+                # Update battery fill and percentage
+                battery_fill.configure(width=int(300 * battery_level / 100))
+                battery_fill.configure(bg="#00FF00" if battery_level > 50 else "#FFFF00" if battery_level > 20 else "#FF0000")
+                battery_percent.config(text=f"{battery_level:.1f}%")
+                
+                # Update status text
+                status_text = "Normal operation" if battery_level > 50 else "Low power mode" if battery_level > 10 else "Critical power level"
+                status_label.config(text=f"Status: {status_text}")
+                
+                # Update battery icons for connected systems
+                for system in systems:
+                    if system.get("connected_to_battery", False):
+                        # Find and update the system's frame
+                        for widget in systems_list_frame.winfo_children():
+                            if isinstance(widget, tk.Frame):
+                                # Look for the battery icon in this system's frame
+                                for child in widget.winfo_children():
+                                    if isinstance(child, tk.Label) and "🔋" in child.cget("text") or "⚠️" in child.cget("text"):
+                                        # Update the battery icon
+                                        battery_icon = "🔋" if battery_level > 10 else "⚠️"
+                                        child.config(text=battery_icon, fg="#00FF00" if battery_level > 20 else "#FF0000")
+                                        break
+
+            # Toggle button for solar panels
+            def toggle_solar_panels():
+                # Toggle the solar charging state
+                self.player_data["station_power"]["solar_charging"] = not self.player_data["station_power"]["solar_charging"]
+                
+                # Update the button text
+                new_state = "ACTIVE" if self.player_data["station_power"]["solar_charging"] else "INACTIVE"
+                solar_toggle_btn.config(text=f"Solar Array: {new_state}")
+                
+                # Update solar status label
+                solar_status = "ACTIVE" if self.player_data["station_power"]["solar_charging"] else "INACTIVE"
+                solar_color = "#00FF00" if self.player_data["station_power"]["solar_charging"] else "#FF0000"
+                solar_label.config(text=f"Solar Charging: {solar_status}", fg=solar_color)
+                
+                # Also update the button color to match the status
+                solar_toggle_btn.config(fg=solar_color)
+                
+                # Update the battery display to reflect changes
+                update_battery_display()
+                
+                # Show message about the change
+                message = "Solar arrays activated. Batteries now charging from solar power." if self.player_data["station_power"]["solar_charging"] else "Solar arrays deactivated. Battery charging stopped."
+                panel_window.after(10, lambda: messagebox.showinfo("Solar Control", message, parent=panel_window))
+            
+            solar_toggle_btn = tk.Button(solar_frame, text=f"Solar Array: {solar_status}", 
+                                      font=("Arial", 12), bg="#333333", fg=solar_color,
+                                      command=toggle_solar_panels)
+            solar_toggle_btn.pack(pady=10)
+            
+            # Station systems section
+            systems_frame = tk.Frame(scrollable_frame, bg="#222222", bd=1, relief=tk.RIDGE)
+            systems_frame.pack(fill=tk.X, padx=20, pady=10)
+            
+            systems_title = tk.Label(systems_frame, text="Station Power Systems", font=("Arial", 14, "bold"), 
+                                   bg="#222222", fg="#00CCFF")
+            systems_title.pack(anchor="w", padx=10, pady=5)
+            
+            # Create a frame for system statuses
+            systems_list_frame = tk.Frame(systems_frame, bg="#222222")
+            systems_list_frame.pack(fill=tk.X, padx=10, pady=5)
+            
+            # Get system levels from player data
+            system_levels = self.player_data["station_power"]["system_levels"]
+            
+            # List of station systems with power status
+            systems = [
+                {"name": "Life Support", "status": "Online" if system_levels.get("life_support", 10) > 0 else "Offline", "power_draw": "High", "connected_to_battery": True},
+                {"name": "Hallway Lighting", "status": "Online" if system_levels.get("hallway_lighting", 5) > 0 else "Offline", "power_draw": "Medium", "connected_to_battery": True},
+                {"name": "Security Systems", "status": "Online" if system_levels.get("security_systems", 7) > 0 else "Offline", "power_draw": "Medium"},
+                {"name": "Communication Array", "status": "Online" if system_levels.get("communication_array", 5) > 0 else "Offline", "power_draw": "Low"}
+            ]
+            
+            for system in systems:
+                system_frame = tk.Frame(systems_list_frame, bg="#333333", bd=1, relief=tk.RIDGE)
+                system_frame.pack(fill=tk.X, padx=5, pady=3)
+                
+                name_label = tk.Label(system_frame, text=system["name"], font=("Arial", 12, "bold"), 
+                                    bg="#333333", fg="white")
+                name_label.pack(side=tk.LEFT, padx=10, pady=3)
+                
+                status_color = "#00FF00" if system["status"] == "Online" else "#FFFF00" if system["status"] == "Standby" else "#FF0000"
+                status_label = tk.Label(system_frame, text=system["status"], font=("Arial", 12), 
+                                      bg="#333333", fg=status_color)
+                status_label.pack(side=tk.RIGHT, padx=10, pady=3)
+                
+                # Add battery icon for systems connected to the battery
+                if system.get("connected_to_battery", False):
+                    battery_icon = "🔋" if battery_level > 10 else "⚠️"
+                    battery_label = tk.Label(system_frame, text=battery_icon, font=("Arial", 14), 
+                                           bg="#333333", fg="#00FF00" if battery_level > 20 else "#FF0000")
+                    battery_label.pack(side=tk.RIGHT, padx=5, pady=3)
+            
+            # Advanced power control section with functional sliders
+            advanced_frame = tk.Frame(scrollable_frame, bg="#222222", bd=1, relief=tk.RIDGE)
+            advanced_frame.pack(fill=tk.X, padx=20, pady=10)
+            
+            advanced_title = tk.Label(advanced_frame, text="Advanced Power Controls", font=("Arial", 14, "bold"), 
+                                    bg="#222222", fg="#00CCFF")
+            advanced_title.pack(anchor="w", padx=10, pady=5)
+            
+            advanced_desc = tk.Label(advanced_frame, text="Configure power distribution and manage system priority.", 
+                                   font=("Arial", 12), bg="#222222", fg="white", wraplength=500)
+            advanced_desc.pack(anchor="w", padx=10, pady=5)
+            
+            # Create dictionary to store slider objects
+            system_sliders = {}
+            
+            # Add warning label about system settings
+            warning_label = tk.Label(advanced_frame, text="Warning: Setting systems to 0 may have harmful effects on the station's environment and crew.", 
+                                    font=("Arial", 12, "italic"), bg="#222222", fg="#FF9900", wraplength=500)
+            warning_label.pack(anchor="w", padx=10, pady=5)
+            
+            # Add some dummy controls
+            priority_frame = tk.Frame(advanced_frame, bg="#222222")
+            priority_frame.pack(fill=tk.X, padx=10, pady=5)
+            
+            # System priority sliders
+            priority_label = tk.Label(priority_frame, text="System Power Priority", font=("Arial", 12, "bold"), 
+                                    bg="#222222", fg="white")
+            priority_label.pack(anchor="w", pady=5)
+            
+            # Add power draw explanation
+            power_draw_info = tk.Label(priority_frame, text="Higher settings increase power consumption. Setting systems to 0 turns them off completely.", 
+                                     font=("Arial", 10, "italic"), bg="#222222", fg="#AAAAAA", wraplength=500)
+            power_draw_info.pack(anchor="w", pady=5)
+            
+            # Power consumption rates for each system at max level
+            system_power_rates = {
+                "life_support": 0.5,         # Higher power consumption
+                "hallway_lighting": 0.3,     # Medium power consumption
+                "security_systems": 0.3,     # Medium power consumption
+                "communication_array": 0.2    # Lower power consumption
+            }
+            
+            # Dictionary to store power draw labels
+            power_draw_labels = {}
+            
+            # Function to update system levels when sliders change
+            def update_system_level(system_name, value):
+                value = int(value)  # Convert to integer
+                system_key = system_name.lower().replace(" ", "_")
+                self.player_data["station_power"]["system_levels"][system_key] = value
+                
+                # Update power draw label for this system
+                if system_key in power_draw_labels:
+                    if value == 0:
+                        power_text = "Power draw: None (System OFF)"
+                        power_draw_labels[system_key].config(text=power_text, fg="#FF0000")
+                    else:
+                        # Calculate relative power draw based on slider value
+                        max_rate = system_power_rates.get(system_key, 0.3)
+                        current_rate = max_rate * value / 10.0
+                        power_text = f"Power draw: {current_rate:.2f}% per minute"
+                        
+                        # Color code based on power draw
+                        if value <= 3:
+                            color = "#00FF00"  # Green for low power draw
+                        elif value <= 7:
+                            color = "#FFAA00"  # Orange for medium power draw
+                        else:
+                            color = "#FF5500"  # Red-orange for high power draw
+                            
+                        power_draw_labels[system_key].config(text=power_text, fg=color)
+                
+                # Find and update only the specific system that's changing
+                for i, system in enumerate(systems):
+                    if system["name"].lower().replace(" ", "_") == system_name.lower().replace(" ", "_"):
+                        # Update status text and color in the UI for this system only
+                        new_status = "Online" if value > 0 else "Offline"
+                        system["status"] = new_status
+                        
+                        # Find this system's frame in the systems_list_frame
+                        for widget in systems_list_frame.winfo_children():
+                            if isinstance(widget, tk.Frame):
+                                # Check if this is the frame for our system
+                                system_label = widget.winfo_children()[0]  # First child should be the name label
+                                if system_label.cget("text") == system["name"]:
+                                    # Look for the status label in this system's frame
+                                    for child in widget.winfo_children():
+                                        if isinstance(child, tk.Label) and child != system_label:
+                                            # This should be the status label - update it
+                                            status_color = "#00FF00" if new_status == "Online" else "#FF0000"
+                                            child.config(text=new_status, fg=status_color)
+                                            break
+                                    break
+                        break
+                
+                # Handle life support system specifically
+                if system_name == "life_support":
+                    if value == 0:
+                        # If life support is set to 0, announce oxygen depletion
+                        self.announce_oxygen_depletion()
+                    else:
+                        # If life support is greater than 0, reset the flag so another
+                        # announcement can happen if it drops to 0 again
+                        self.announcement_active = False
+                
+                # Update the power display after any system changes
+                update_battery_display()
+            
+            # Add sliders for different systems
+            systems_priority = [
+                {"name": "Life Support", "key": "life_support", "default": system_levels.get("life_support", 10)},
+                {"name": "Hallway Lighting", "key": "hallway_lighting", "default": system_levels.get("hallway_lighting", 5)},
+                {"name": "Security Systems", "key": "security_systems", "default": system_levels.get("security_systems", 7)},
+                {"name": "Communication Array", "key": "communication_array", "default": system_levels.get("communication_array", 5)}
+            ]
+            
+            for system in systems_priority:
+                system_priority_frame = tk.Frame(priority_frame, bg="#222222")
+                system_priority_frame.pack(fill=tk.X, pady=2)
+                
+                system_name = system["name"]
+                system_key = system["key"]
+                default_value = system["default"]
+                
+                system_label = tk.Label(system_priority_frame, text=system_name, font=("Arial", 12), 
+                                      bg="#222222", fg="white", width=15, anchor="w")
+                system_label.pack(side=tk.LEFT, padx=5)
+                
+                # Add a slider with current value
+                slider = tk.Scale(system_priority_frame, from_=0, to=10, orient=tk.HORIZONTAL, 
+                               length=200, bg="#333333", fg="white", troughcolor="#444444",
+                               highlightthickness=0, command=lambda v, name=system_key: update_system_level(name, v))
+                slider.set(default_value)
+                slider.pack(side=tk.LEFT, padx=10)
+                
+                # Create power draw label with current rate
+                power_frame = tk.Frame(system_priority_frame, bg="#222222")
+                power_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+                
+                current_rate = system_power_rates.get(system_key, 0.3) * default_value / 10.0
+                if default_value == 0:
+                    power_text = "Power draw: None (System OFF)"
+                    power_color = "#FF0000"
+                else:
+                    power_text = f"Power draw: {current_rate:.2f}% per minute"
+                    if default_value <= 3:
+                        power_color = "#00FF00"  # Green for low power draw
+                    elif default_value <= 7:
+                        power_color = "#FFAA00"  # Orange for medium power draw
+                    else:
+                        power_color = "#FF5500"  # Red-orange for high power draw
+                
+                power_label = tk.Label(power_frame, text=power_text, font=("Arial", 10), 
+                                     bg="#222222", fg=power_color)
+                power_label.pack(anchor="w")
+                
+                # Store label reference for updating later
+                power_draw_labels[system_key] = power_label
+                
+                # Store slider reference for later use
+                system_sliders[system_key] = slider
+            
+            # Power mode selection with functional radio buttons
+            power_mode_frame = tk.Frame(advanced_frame, bg="#222222")
+            power_mode_frame.pack(fill=tk.X, padx=10, pady=10)
+            
+            power_mode_label = tk.Label(power_mode_frame, text="Power Management Mode", font=("Arial", 12, "bold"), 
+                                      bg="#222222", fg="white")
+            power_mode_label.pack(anchor="w", pady=5)
+            
+            # Function to apply power mode settings to sliders
+            def set_power_mode(mode):
+                self.player_data["station_power"]["power_mode"] = mode
+                
+                # Set slider values based on mode
+                if mode == "balanced":
+                    # Balanced mode - default values
+                    system_sliders["life_support"].set(10)
+                    system_sliders["hallway_lighting"].set(5)
+                    system_sliders["security_systems"].set(7)
+                    system_sliders["communication_array"].set(5)
+                elif mode == "high":
+                    # High performance - max values
+                    system_sliders["life_support"].set(10)
+                    system_sliders["hallway_lighting"].set(10)
+                    system_sliders["security_systems"].set(10)
+                    system_sliders["communication_array"].set(10)
+                elif mode == "low":
+                    # Power saving - minimal values
+                    system_sliders["life_support"].set(7)
+                    system_sliders["hallway_lighting"].set(3)
+                    system_sliders["security_systems"].set(5)
+                    system_sliders["communication_array"].set(2)
+                elif mode == "emergency":
+                    # Emergency - critical systems only
+                    system_sliders["life_support"].set(10)
+                    system_sliders["hallway_lighting"].set(1)
+                    system_sliders["security_systems"].set(3)
+                    system_sliders["communication_array"].set(1)
+                
+                # Update power displays to show the changes
+                update_battery_display()
+            
+            # Radio buttons for power modes
+            power_var = tk.StringVar(value=self.player_data["station_power"]["power_mode"])
+            modes = [
+                ("Balanced (Standard Operation)", "balanced"),
+                ("High Performance (Increased Draw)", "high"),
+                ("Power Saving (Limited Functionality)", "low"),
+                ("Emergency Only (Critical Systems)", "emergency")
+            ]
+            
+            for text, mode in modes:
+                mode_radio = tk.Radiobutton(power_mode_frame, text=text, variable=power_var, value=mode,
+                                          bg="#222222", fg="white", selectcolor="#444444", 
+                                          activebackground="#222222", activeforeground="white",
+                                          command=lambda m=mode: set_power_mode(m))
+                mode_radio.pack(anchor="w", padx=20, pady=2)
+            
+            # Function to handle mousewheel scrolling
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            # Bind the mousewheel event for scrolling
+            panel_window.bind("<MouseWheel>", on_mousewheel)
+            
+            # Close button at the bottom of the scrollable content
+            close_btn = tk.Button(scrollable_frame, text="Close Panel", font=("Arial", 14), bg="#333333", fg="white",
+                                command=panel_window.destroy)
+            close_btn.pack(pady=15)
+            
+            # Configure the canvas to scroll properly
+            scrollable_frame.update_idletasks()
+            canvas.config(scrollregion=canvas.bbox("all"))
+            
+            # Store references to UI elements that need updates
+            self.battery_update_refs = {
+                "battery_fill": battery_fill,
+                "battery_percent": battery_percent,
+                "status_label": status_label,
+                "solar_label": solar_label,
+                "systems_list_frame": systems_list_frame,
+                "systems": systems
+            }
+            
+            # Function to periodically update the battery display
+            def update_battery_display_timer():
+                # Force an immediate battery update from player_data values
+                update_battery_display()
+                
+                # Schedule the next update - update more frequently (500ms instead of 2000ms)
+                self.battery_display_timer = panel_window.after(500, update_battery_display_timer)
+            
+            # Start a repeating timer to update the battery display more frequently
+            self.battery_display_timer = panel_window.after(500, update_battery_display_timer)
+            
+            # Function to handle mousewheel scrolling
+            def on_mousewheel(event):
+                canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+            # Bind the mousewheel event for scrolling
+            panel_window.bind("<MouseWheel>", on_mousewheel)
+            
+            # Close button at the bottom of the scrollable content
+            close_btn = tk.Button(scrollable_frame, text="Close Panel", font=("Arial", 14), bg="#333333", fg="white",
+                                command=panel_window.destroy)
+            close_btn.pack(pady=15)
+            
+            # Override destroy method to clean up bindings when the window is closed
+            orig_destroy = panel_window.destroy
+            def _destroy_and_cleanup():
+                try:
+                    panel_window.unbind("<MouseWheel>")
+                    # Cancel the battery display timer
+                    if hasattr(self, 'battery_display_timer'):
+                        panel_window.after_cancel(self.battery_display_timer)
+                except:
+                    pass
+                orig_destroy()
+            
+            panel_window.destroy = _destroy_and_cleanup
+            
+        else:
+            # Show unauthorized access message for non-engineers
+            self.engineering_window.after(10, lambda: messagebox.showwarning("Unauthorized Access", 
+                                                                           "You do not have authorization to access the Engineering Panel. Engineering or Captain clearance required.", 
+                                                                           parent=self.engineering_window))
+            # Make sure the window stays on top after dialog
+            self.engineering_window.after(20, self.engineering_window.lift)
+            self.engineering_window.focus_force()
+    
+    def announce_oxygen_depletion(self):
+        """Announce oxygen depletion to all crew when life support is set to 0"""
+        try:
+            # Check if an announcement is already active - don't show another one
+            if hasattr(self, 'announcement_active') and self.announcement_active:
+                return
+                
+            # Add an announcement to player data
+            if "announcements" not in self.player_data:
+                self.player_data["announcements"] = []
+                
+            announcement = {
+                "timestamp": datetime.datetime.now().isoformat(),
+                "text": "CRITICAL ALERT: Life support systems offline! Oxygen levels dropping to critical levels. All crew are advised to evacuate or obtain emergency oxygen supplies immediately.",
+                "type": "emergency",
+                "seen": False
+            }
+            
+            self.player_data["announcements"].append(announcement)
+            
+            # Set an oxygen depletion timer
+            if "damage_timers" not in self.player_data:
+                self.player_data["damage_timers"] = {}
+                
+            self.player_data["damage_timers"]["oxygen_depletion"] = {
+                "active": True,
+                "start_time": datetime.datetime.now().isoformat(),
+                "warning_shown": False
+            }
+            
+            # Mark announcement as active so we don't show multiple popups
+            self.announcement_active = True
+            
+            # Create the emergency announcement window
+            pa_window = tk.Toplevel(self.engineering_window)
+            pa_window.title("STATION-WIDE EMERGENCY ANNOUNCEMENT")
+            pa_window.geometry("700x600") 
+            pa_window.configure(bg="#990000")  # Red background for emergency
+            # Ensure this window stays on top
+            pa_window.transient(self.engineering_window)
+            pa_window.grab_set()
+            
+            # Handle closing properly
+            def close_announcement(*args):
+                # Destroy the window
+                pa_window.destroy()
+                
+                # Make sure the engineering panel is visible and focused
+                if hasattr(self, 'engineering_window') and self.engineering_window.winfo_exists():
+                    self.engineering_window.lift()
+                    self.engineering_window.focus_force()
+                
+                # Show follow-up warning
+                messagebox.showwarning("CRITICAL SYSTEM ALERT", 
+                                     "STATION ALERT: Life support systems have been deactivated!\n\nOxygen levels will rapidly deplete. All crew will begin to suffer oxygen damage in approximately 1 minute.", 
+                                     parent=self.engineering_window)
+            
+            # Function for blinking effect
+            def toggle_bg():
+                if not pa_window.winfo_exists():
+                    return
+                    
+                current_color = pa_window.cget("bg")
+                new_color = "#660000" if current_color == "#990000" else "#990000"
+                pa_window.configure(bg=new_color)
+                
+                # Update any frames and labels with the new color
+                for widget in pa_window.winfo_children():
+                    if isinstance(widget, tk.Frame):
+                        widget.configure(bg=new_color)
+                        for subwidget in widget.winfo_children():
+                            if isinstance(subwidget, tk.Label):
+                                subwidget.configure(bg=new_color)
+                
+                # Continue blinking only if window still exists
+                if pa_window.winfo_exists():
+                    pa_window.after(500, toggle_bg)
+            
+            # Set up the content frame
+            content_frame = tk.Frame(pa_window, bg="#990000", padx=30, pady=30)
+            content_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # Warning icon and title
+            warning_icon = tk.Label(content_frame, text="⚠️", font=("Arial", 64), bg="#990000", fg="#FFFF00")
+            warning_icon.pack(pady=(20, 10))
+            
+            title_label = tk.Label(content_frame, text="CRITICAL ALERT", font=("Arial", 24, "bold"), bg="#990000", fg="white")
+            title_label.pack(pady=(0, 20))
+            
+            # Alert message
+            message_text = tk.Label(content_frame, 
+                                  text="LIFE SUPPORT SYSTEMS OFFLINE!\n\nOxygen levels dropping to critical levels.\n\nAll crew are advised to evacuate or obtain emergency oxygen supplies immediately.",
+                                  font=("Arial", 14), bg="#990000", fg="white", justify=tk.CENTER, wraplength=500)
+            message_text.pack(pady=20)
+            
+            # Acknowledge button - extra large and prominent
+            acknowledge_button = tk.Button(content_frame, text="ACKNOWLEDGE", font=("Arial", 24, "bold"), 
+                                         bg="#FFFF00", fg="#FF0000", padx=40, pady=20,
+                                         width=20, height=10,
+                                         command=close_announcement)
+            acknowledge_button.pack(pady=10)
+            
+            # Bind keyboard events
+            pa_window.bind("<Escape>", close_announcement)
+            pa_window.bind("<Return>", close_announcement)
+            
+            # Bind window close button
+            pa_window.protocol("WM_DELETE_WINDOW", close_announcement)
+            
+            # Center the window
+            pa_window.update_idletasks()
+            width = 700  # Make sure this matches the new geometry width
+            height = 500  # Make sure this matches the new geometry height
+            x = (pa_window.winfo_screenwidth() // 2) - (width // 2)
+            y = (pa_window.winfo_screenheight() // 2) - (height // 2)
+            pa_window.geometry(f"{width}x{height}+{x}+{y}")
+            
+            # Start blinking effect
+            pa_window.after(100, toggle_bg)
+            
+        except Exception as e:
+            print(f"Error announcing oxygen depletion: {e}")
+            # Reset flag if there's an error so it can try again
+            self.announcement_active = False
+            # Show a simple warning as fallback
+            messagebox.showwarning("CRITICAL SYSTEM ALERT", 
+                                 "STATION ALERT: Life support systems have been deactivated!\n\nOxygen levels will rapidly deplete. All crew will begin to suffer oxygen damage in approximately 1 minute.", 
+                                 parent=self.engineering_window)
     
     def toggle_door_lock(self):
         # Get the door location key
@@ -2785,9 +3413,7 @@ class Botany:
     
     def access_botany_station(self):
         """Access the botany station for authorized personnel"""
-        # Show access confirmation for authorized personnel
-        self.botany_window.after(10, lambda: messagebox.showinfo("Botany Station", "Access granted. Welcome to the Botany Station.", parent=self.botany_window))
-        
+        # Remove the access confirmation popup
         # Clear existing buttons
         for widget in self.button_frame.winfo_children():
             widget.destroy()
@@ -2966,9 +3592,6 @@ class Botany:
         """Get seeds from the seed machine"""
         self.player_data["botany"]["seeds"].append(seed)
         
-        # Show confirmation message
-        messagebox.showinfo("Seeds Acquired", f"You've acquired {seed['name']}!", parent=parent_window)
-        
         # Add note about getting seeds
         if "notes" not in self.player_data:
             self.player_data["notes"] = []
@@ -3007,17 +3630,30 @@ class Botany:
         y = (plant_window.winfo_screenheight() // 2) - (height // 2)
         plant_window.geometry(f"{width}x{height}+{x}+{y}")
         
+        # Create main canvas with scrollbar
+        main_canvas = tk.Canvas(plant_window, bg="black", highlightthickness=0)
+        scrollbar = tk.Scrollbar(plant_window, orient="vertical", command=main_canvas.yview)
+        main_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        main_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Create a frame inside canvas to hold all content
+        content_frame = tk.Frame(main_canvas, bg="black")
+        canvas_frame = main_canvas.create_window((0, 0), window=content_frame, anchor="nw")
+        
         # Title
-        title_label = tk.Label(plant_window, text="Plant Seeds", font=("Arial", 18, "bold"), bg="black", fg="white")
+        title_label = tk.Label(content_frame, text="Plant Seeds", font=("Arial", 18, "bold"), bg="black", fg="white")
         title_label.pack(pady=15)
         
         # Description
         desc_text = "Select a seed to plant and an empty planter to place it in."
-        desc_label = tk.Label(plant_window, text=desc_text, font=("Arial", 12), bg="black", fg="white", wraplength=600)
+        desc_label = tk.Label(content_frame, text=desc_text, font=("Arial", 12), bg="black", fg="white", wraplength=600)
         desc_label.pack(pady=10)
         
         # Top frame for seeds
-        seeds_frame = tk.LabelFrame(plant_window, text="Your Seeds", font=("Arial", 14), bg="black", fg="white")
+        seeds_frame = tk.LabelFrame(content_frame, text="Your Seeds", font=("Arial", 14), bg="black", fg="white")
         seeds_frame.pack(padx=20, pady=10, fill=tk.X)
         
         # Keep track of the selected seed and planter
@@ -3077,7 +3713,7 @@ class Botany:
             seed_buttons.append(seed_frame)
         
         # Planter selection frame
-        planters_frame = tk.LabelFrame(plant_window, text="Available Planters", font=("Arial", 14), bg="black", fg="white")
+        planters_frame = tk.LabelFrame(content_frame, text="Available Planters", font=("Arial", 14), bg="black", fg="white")
         planters_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
         
         # Add planter options
@@ -3133,16 +3769,65 @@ class Botany:
                 "text": f"Planted {seed['name']} in planter {planter_index+1}."
             })
             
-            # Show confirmation
-            messagebox.showinfo("Success", 
-                             f"You've successfully planted {seed['name']} in planter {planter_index+1}.", 
-                             parent=plant_window)
+            # Refresh the planters display (but don't close the window)
+            for btn in seed_buttons:
+                btn.destroy()
             
-            # Close the planting window
-            plant_window.destroy()
+            for btn in planter_buttons:
+                btn.destroy()
+                
+            # Reset buttons and selection
+            seed_buttons.clear()
+            planter_buttons.clear()
+            selected_data["seed"] = None
+            selected_data["planter"] = None
+            
+            # Recreate the seed and planter options
+            for i, seed in enumerate(self.player_data["botany"]["seeds"]):
+                seed_frame = tk.Frame(seeds_frame, bg="#1A3200", bd=1, relief=tk.RIDGE)
+                seed_frame.pack(fill=tk.X, padx=10, pady=5)
+                
+                name_label = tk.Label(seed_frame, text=seed["name"], font=("Arial", 12, "bold"), bg="#1A3200", fg="#00FF00")
+                name_label.pack(side=tk.LEFT, padx=10, pady=5)
+                
+                select_btn = tk.Button(seed_frame, text="Select", font=("Arial", 10), bg="#333333",
+                                    command=lambda s=seed, b=seed_frame: select_seed(s, b))
+                select_btn.pack(side=tk.RIGHT, padx=10, pady=5)
+                seed_buttons.append(seed_frame)
+            
+            for i, planter in enumerate(self.player_data["botany"]["planters"]):
+                planter_frame = tk.Frame(planters_frame, bg="#222222", bd=2, relief=tk.RIDGE)
+                planter_frame.pack(fill=tk.X, padx=20, pady=10)
+                
+                if planter["occupied"]:
+                    # Show occupied planter
+                    name_label = tk.Label(planter_frame, text=f"Planter {i+1}: {planter['plant']}", 
+                                        font=("Arial", 14, "bold"), bg="#222222", fg="light green")
+                    name_label.pack(side=tk.LEFT, padx=10, pady=5)
+                    
+                    status_label = tk.Label(planter_frame, text="OCCUPIED", 
+                                          font=("Arial", 12), bg="#222222", fg="red")
+                    status_label.pack(side=tk.RIGHT, padx=10, pady=5)
+                else:
+                    # Show empty planter
+                    name_label = tk.Label(planter_frame, text=f"Planter {i+1}: Empty", 
+                                        font=("Arial", 14, "bold"), bg="#222222", fg="white")
+                    name_label.pack(side=tk.LEFT, padx=10, pady=5)
+                    
+                    select_btn = tk.Button(planter_frame, text="Select", font=("Arial", 10), bg="#333333",
+                                        command=lambda idx=i, b=planter_frame: select_planter(idx, b))
+                    select_btn.pack(side=tk.RIGHT, padx=10, pady=5)
+                planter_buttons.append(planter_frame)
+            
+            # Update canvas scroll region
+            content_frame.update_idletasks()
+            main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+            
+            # Disable the plant button again
+            plant_btn.config(state=tk.DISABLED)
         
         # Bottom buttons
-        button_frame = tk.Frame(plant_window, bg="black")
+        button_frame = tk.Frame(content_frame, bg="black")
         button_frame.pack(pady=20)
         
         # Plant button (disabled until both seed and planter are selected)
@@ -3154,6 +3839,29 @@ class Botany:
         cancel_btn = tk.Button(button_frame, text="Cancel", font=("Arial", 14), width=15, 
                             command=plant_window.destroy)
         cancel_btn.pack(side=tk.LEFT, padx=20)
+        
+        # Configure canvas scrolling
+        def configure_scroll_region(event):
+            main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+            
+        content_frame.bind("<Configure>", configure_scroll_region)
+        
+        # Configure mouse wheel scrolling
+        def on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+            
+        main_canvas.bind_all("<MouseWheel>", on_mousewheel)
+        
+        # Update the canvas when all widgets are packed
+        content_frame.update_idletasks()
+        main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        
+        # Make sure canvas width matches the window width
+        def adjust_canvas_frame(event):
+            canvas_width = event.width
+            main_canvas.itemconfig(canvas_frame, width=canvas_width)
+            
+        main_canvas.bind("<Configure>", adjust_canvas_frame)
     
     def toggle_door_lock(self):
         """Toggle the lock on the botany lab door"""
