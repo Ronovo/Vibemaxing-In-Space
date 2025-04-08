@@ -1,0 +1,348 @@
+{
+    "name": "Neil Armstrong",
+    "job": "Staff Assistant",
+    "inventory": [
+        {
+            "id": "welcome_guide",
+            "name": "Welcome Guide",
+            "description": "A standard issue guide for new arrivals to the station.",
+            "category": "Book",
+            "attributes": {
+                "content": "WELCOME TO SPACE STATION EXPLORER\n\nWelcome to your new home among the stars! This guide will help you get acquainted with life aboard our station.\n\nIMPORTANT TIPS:\n- Always follow safety protocols\n- Report any unusual activity to Security\n- Keep your personal quarters clean and organized\n- Get to know your fellow crew members\n- Visit the Bar for social interactions\n- Check the computer terminal for stock market opportunities\n\nWe hope you enjoy your stay and contribute to our thriving community!\n"
+            },
+            "actions": [
+                "examine",
+                "read",
+                "drop"
+            ]
+        },
+        {
+            "id": "station_map",
+            "name": "Station Map",
+            "description": "A basic layout map of the Space Station Explorer.",
+            "category": "Book",
+            "attributes": {
+                "content": "SPACE STATION EXPLORER - STATION MAP\n\nNORTH SECTION:\n- Bridge (Command Center)\n- North Hallway\n\nEAST SECTION:\n- Medical Bay\n- East Hallway\n- Bar\n\nNORTHEAST SECTION:\n- Security\n- Engineering Bay\n\nCENTRAL:\n- Personal Quarters\n- Hallway Junction\n\nRemember to use navigation panels to move between sections.\n"
+            },
+            "actions": [
+                "examine",
+                "read",
+                "drop"
+            ]
+        },
+        {
+            "id": "basic_tools",
+            "name": "Basic Tools",
+            "description": "A set containing a small wrench, screwdriver, and pliers.",
+            "category": "Tool",
+            "attributes": {},
+            "actions": [
+                "examine",
+                "use",
+                "drop"
+            ]
+        }
+    ],
+    "credits": 1000,
+    "location": {
+        "x": -1,
+        "y": 0
+    },
+    "stock_holdings": {},
+    "stock_market": {
+        "cycle_number": 3,
+        "day_number": 1,
+        "companies": [
+            {
+                "name": "TechCorp",
+                "current_value": 535.3640115567445,
+                "previous_value": 488.96082682564725,
+                "price_history": [
+                    588.3316905107395,
+                    638.3113213043393,
+                    584.3594335393991,
+                    554.8009716442953,
+                    556.8026066449261,
+                    538.0615661187406,
+                    488.96082682564725,
+                    535.3640115567445
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "GlobalBank",
+                "current_value": 130.4685417929625,
+                "previous_value": 137.294353945325,
+                "price_history": [
+                    165.27694564425144,
+                    156.19183367833625,
+                    143.32307554339783,
+                    141.9632641931594,
+                    133.26449404890582,
+                    143.574658108179,
+                    137.294353945325,
+                    130.4685417929625
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "HealthCare Plus",
+                "current_value": 532.2824379166531,
+                "previous_value": 570.5741520115375,
+                "price_history": [
+                    580.3486851952038,
+                    601.836925792711,
+                    566.4281554574043,
+                    561.6312404338316,
+                    546.5131356221337,
+                    578.1383562037521,
+                    570.5741520115375,
+                    532.2824379166531
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "EnergyCo",
+                "current_value": 46.99776649226574,
+                "previous_value": 43.15904589821805,
+                "price_history": [
+                    47.777126391743586,
+                    52.24410858463966,
+                    47.538401006084676,
+                    44.37657636800734,
+                    40.849847907376784,
+                    41.2635436887053,
+                    43.15904589821805,
+                    46.99776649226574
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "FoodChain",
+                "current_value": 693.2299089148502,
+                "previous_value": 651.279029248947,
+                "price_history": [
+                    562.8068898873319,
+                    592.0394787105233,
+                    622.3599879624996,
+                    631.8693821585139,
+                    611.2250124252547,
+                    665.0647669518614,
+                    651.279029248947,
+                    693.2299089148502
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "AutoMakers",
+                "current_value": 35.410018406249165,
+                "previous_value": 32.558426743493825,
+                "price_history": [
+                    27.464026085346624,
+                    27.17716181255485,
+                    28.72478027935407,
+                    28.823761028073605,
+                    29.42796885320013,
+                    30.53568322375653,
+                    32.558426743493825,
+                    35.410018406249165
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "RetailGiant",
+                "current_value": 181.93880934655743,
+                "previous_value": 173.11740775860102,
+                "price_history": [
+                    189.2339642292118,
+                    170.48484657893354,
+                    176.23909470444073,
+                    184.44160881578955,
+                    171.0866417424009,
+                    171.86322052135594,
+                    173.11740775860102,
+                    181.93880934655743
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "PharmaTech",
+                "current_value": 53.19726304744578,
+                "previous_value": 54.1439795785875,
+                "price_history": [
+                    60.35545624663104,
+                    62.88235263638218,
+                    58.4665293362714,
+                    57.838867804781046,
+                    53.863756607375024,
+                    51.92994308823544,
+                    54.1439795785875,
+                    53.19726304744578
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "RealEstate Co",
+                "current_value": 203.31126622553722,
+                "previous_value": 218.2360389421936,
+                "price_history": [
+                    250.63441545074113,
+                    260.39653329388017,
+                    261.2380421247499,
+                    243.78937440208426,
+                    236.52576112314824,
+                    224.73153904397626,
+                    218.2360389421936,
+                    203.31126622553722
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "MediaGroup",
+                "current_value": 1014.8549206823284,
+                "previous_value": 985.6443570993746,
+                "price_history": [
+                    954.5471865682665,
+                    1038.2085413964865,
+                    1032.0275734392387,
+                    934.4901901260375,
+                    1011.206571500444,
+                    1042.4944280560292,
+                    985.6443570993746,
+                    1014.8549206823284
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "Aerospace Inc",
+                "current_value": 82.53894873572021,
+                "previous_value": 79.59943244076827,
+                "price_history": [
+                    77.03817981604138,
+                    72.47537668889203,
+                    73.691850156976,
+                    73.32053840509268,
+                    77.42108704860229,
+                    79.16804413353556,
+                    79.59943244076827,
+                    82.53894873572021
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "TechStart",
+                "current_value": 890.5405920892132,
+                "previous_value": 851.7982214549093,
+                "price_history": [
+                    922.9282225925976,
+                    940.6832626734928,
+                    1018.1270951364219,
+                    940.3528002857735,
+                    971.8554239627337,
+                    899.2920026577237,
+                    851.7982214549093,
+                    890.5405920892132
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "GreenEnergy",
+                "current_value": 348.23381446740524,
+                "previous_value": 349.01777451917854,
+                "price_history": [
+                    412.1996898592501,
+                    414.82082948910426,
+                    400.37384290974086,
+                    402.5845592833001,
+                    366.2271265295015,
+                    348.2695611647403,
+                    349.01777451917854,
+                    348.23381446740524
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "DigitalBank",
+                "current_value": 256.2564859332156,
+                "previous_value": 236.96195139214294,
+                "price_history": [
+                    211.88690671315845,
+                    208.2464037528197,
+                    204.47627153880973,
+                    224.3107159444158,
+                    224.756263344078,
+                    234.9747793484556,
+                    236.96195139214294,
+                    256.2564859332156
+                ],
+                "owned_shares": 0
+            },
+            {
+                "name": "SmartHome",
+                "current_value": 326.2153939895449,
+                "previous_value": 319.9052398017685,
+                "price_history": [
+                    277.1072795407126,
+                    294.0211368237953,
+                    299.3174531945266,
+                    318.0138222311883,
+                    296.0916036744163,
+                    305.14272110480124,
+                    319.9052398017685,
+                    326.2153939895449
+                ],
+                "owned_shares": 0
+            }
+        ],
+        "last_update_time": "2025-04-08T16:47:31.205391",
+        "trade_log": []
+    },
+    "limbs": {
+        "left_arm": 100,
+        "right_arm": 100,
+        "left_leg": 100,
+        "right_leg": 100,
+        "chest": 100,
+        "head": 100
+    },
+    "damage": {
+        "burn": 0,
+        "poison": 0,
+        "oxygen": 0
+    },
+    "station_power": {
+        "battery_level": 26.995574000000005,
+        "solar_charging": true,
+        "last_update_time": "2025-04-08T16:47:58.705674",
+        "system_levels": {
+            "life_support": 10,
+            "hallway_lighting": 5,
+            "security_systems": 7,
+            "communication_array": 5
+        },
+        "power_mode": "balanced"
+    },
+    "notes": [
+        {
+            "timestamp": "2025-04-08T16:45:40.974057",
+            "text": "Took Welcome Guide (welcome_guide) from locker."
+        },
+        {
+            "timestamp": "2025-04-08T16:45:43.277675",
+            "text": "Took Station Map (station_map) from locker."
+        },
+        {
+            "timestamp": "2025-04-08T16:45:47.208854",
+            "text": "Took Basic Tools (basic_tools) from locker."
+        }
+    ],
+    "permissions": {
+        "security_station": false,
+        "medbay_station": false,
+        "bridge_station": false,
+        "engineering_station": false,
+        "bar_station": false,
+        "hop_station": false,
+        "botany_station": false
+    }
+}

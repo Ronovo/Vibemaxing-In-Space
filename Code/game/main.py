@@ -7,6 +7,7 @@ import datetime
 import random
 from tkinter import messagebox
 from tkinter import simpledialog
+from tkinter import ttk, PhotoImage
 
 # Add the stock market imports
 import matplotlib.pyplot as plt
@@ -20,59 +21,25 @@ from game.stock_market import Company
 # Import the Game class correctly
 from game.game import Game
 
-# Define the book contents
-BOOK_CONTENTS = {
-    "Welcome Guide": """WELCOME TO SPACE STATION EXPLORER
+# Import special room classes
+from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar, Botany
 
-Welcome to your new home among the stars! This guide will help you get acquainted with life aboard our station.
+# Import item helper
+from game.items import get_item_definition, ALL_ITEMS
 
-IMPORTANT TIPS:
-- Always follow safety protocols
-- Report any unusual activity to Security
-- Keep your personal quarters clean and organized
-- Get to know your fellow crew members
-- Visit the Bar for social interactions
-- Check the computer terminal for stock market opportunities
-
-We hope you enjoy your stay and contribute to our thriving community!
-""",
-    "Station Map": """SPACE STATION EXPLORER - STATION MAP
-
-NORTH SECTION:
-- Bridge (Command Center)
-- North Hallway
-
-EAST SECTION:
-- Medical Bay
-- East Hallway
-- Bar
-
-NORTHEAST SECTION:
-- Security
-- Engineering Bay
-
-CENTRAL:
-- Personal Quarters
-- Hallway Junction
-
-Remember to use navigation panels to move between sections.
-""",
-    "Maintenance Manual": """SPACE STATION MAINTENANCE MANUAL
-
-BASIC TROUBLESHOOTING:
-1. Power cycling is the first solution to try for most electronic issues
-2. Check circuit breakers before reporting electrical failures
-3. Small air leaks can be temporarily patched with emergency sealant
-4. All maintenance tasks must be logged in the station computer
-
-EMERGENCY PROCEDURES:
-- Depressurization: Secure oxygen mask, move to nearest airlock
-- Fire: Use extinguisher, then evacuate section
-- Power failure: Emergency lighting will activate automatically
-
-Contact Engineering for all major repair needs.
-""",
-}
+# List of potential NPC names
+NPC_NAMES = [
+    "Alex Chen", "Morgan Yu", "Sarah Connor", "John Shepard", "Ellen Ripley",
+    "Isaac Clarke", "Samantha Carter", "Jean-Luc Picard", "Nyota Uhura", "Malcolm Reynolds",
+    "River Tam", "Kaidan Alenko", "Liara T'Soni", "James Holden", "Naomi Nagata",
+    "Amos Burton", "Alex Kamal", "Camina Drummer", "Julie Mao", "Joe Miller",
+    "Kara Thrace", "William Adama", "Laura Roslin", "Gaius Baltar", "Sharon Valerii",
+    "David Bowman", "Frank Poole", "Chris Hadfield", "Valentina Tereshkova", "Yuri Gagarin",
+    "Sally Ride", "Neil Armstrong", "Mae Jemison", "Buzz Aldrin", "Alan Shepard",
+    "Jim Lovell", "John Glenn", "Peggy Whitson", "Scott Kelly", "Christina Koch",
+    "Anne McClain", "Jessica Meir", "Sunita Williams", "Mark Kelly", "Michael Collins",
+    "Helen Sharman", "Tim Peake", "Andreas Mogensen", "Thomas Pesquet", "Samantha Cristoforetti"
+]
 
 class SpaceStationGame:
     def __init__(self, root, base_path):
@@ -87,6 +54,7 @@ class SpaceStationGame:
         self.market_running = False
         self.market_thread = None
         self.last_update_time = datetime.datetime.now()
+        self.station_crew = [] # Initialize crew list here
         
         # Initialize battery timer
         self.battery_timer_running = False
@@ -337,7 +305,7 @@ class SpaceStationGame:
             new_level = max(0, min(100, current_level + net_change))
             
             # Debug print for battery changes
-            print(f"Battery update: {current_level:.2f}% -> {new_level:.2f}%, Solar: {self.player_data['station_power']['solar_charging']}, Net Change: {net_change:.4f}% (Charge: {charge_rate:.4f}%, Discharge: {total_discharge_rate:.4f}%)")
+            # print(f"Battery update: {current_level:.2f}% -> {new_level:.2f}%, Solar: {self.player_data['station_power']['solar_charging']}, Net Change: {net_change:.4f}% (Charge: {charge_rate:.4f}%, Discharge: {total_discharge_rate:.4f}%)")
             
             # Update player data with new battery level
             self.player_data["station_power"]["battery_level"] = new_level
@@ -371,58 +339,75 @@ class SpaceStationGame:
         self.battery_timer_id = self.root.after(2000, self.update_battery)
     
     def check_life_support_status(self, elapsed_seconds):
-        """Check life support status and apply oxygen damage if necessary"""
+        """Check life support status and apply oxygen damage to player and NPCs if necessary"""
         try:
             # Get life support level
             life_support_level = self.player_data["station_power"]["system_levels"].get("life_support", 10)
             
-            # If life support is off or critically low, apply oxygen damage
-            if life_support_level == 0:
-                # Oxygen damage rate: 10% per minute (or about 0.167% per second)
-                oxygen_damage_rate = (elapsed_seconds * 0.167)
-                
-                # Add oxygen damage - cap incremental damage to prevent huge jumps
-                current_oxygen_damage = self.player_data["damage"].get("oxygen", 0)
-                # Limit max damage per update to 10% to prevent sudden large jumps
-                max_damage_per_update = 10.0
-                oxygen_damage_rate = min(oxygen_damage_rate, max_damage_per_update)
-                
-                # Debug output
-                print(f"Oxygen damage: Current={current_oxygen_damage:.1f}%, Adding={oxygen_damage_rate:.1f}% (elapsed={elapsed_seconds:.1f}s)")
-                
-                new_oxygen_damage = min(100, current_oxygen_damage + oxygen_damage_rate)
-                self.player_data["damage"]["oxygen"] = new_oxygen_damage
-                
-                # Show warnings at certain thresholds
-                if current_oxygen_damage < 30 and new_oxygen_damage >= 30:
-                    self.show_oxygen_warning(30)
-                elif current_oxygen_damage < 60 and new_oxygen_damage >= 60:
-                    self.show_oxygen_warning(60)
-                elif current_oxygen_damage < 90 and new_oxygen_damage >= 90:
-                    self.show_oxygen_warning(90)
-                
-                # Check if the player has died from oxygen deprivation
-                if new_oxygen_damage >= 100:
-                    self.handle_oxygen_death()
-            elif life_support_level < 5:
-                # Low life support causes slow oxygen damage
-                oxygen_damage_rate = (elapsed_seconds * 0.05)  # 5% per minute
-                # Limit max damage per update
-                oxygen_damage_rate = min(oxygen_damage_rate, 5.0)
-                
-                # Add oxygen damage
-                current_oxygen_damage = self.player_data["damage"].get("oxygen", 0)
-                new_oxygen_damage = min(100, current_oxygen_damage + oxygen_damage_rate)
-                self.player_data["damage"]["oxygen"] = new_oxygen_damage
-            else:
-                # Life support is functional, slowly recover from oxygen damage
-                if self.player_data["damage"].get("oxygen", 0) > 0:
-                    # Recover at 5% per minute (0.083% per second)
-                    recovery_rate = min(self.player_data["damage"]["oxygen"], elapsed_seconds * 0.083)
-                    self.player_data["damage"]["oxygen"] -= recovery_rate
-        except Exception as e:
-            print(f"Error checking life support status: {e}")
+            # Combine player and NPCs for processing
+            all_crew = [self.player_data] + self.station_crew
             
+            # Determine damage or recovery rates based on life support level
+            oxygen_damage_rate = 0
+            recovery_rate_per_second = 0
+            apply_damage = False
+            apply_recovery = False
+            
+            if life_support_level == 0:
+                # Life support OFF: High oxygen damage rate (10% per minute)
+                oxygen_damage_rate = (elapsed_seconds * (10 / 60.0))
+                max_damage_per_update = 10.0  # Limit max damage per update
+                oxygen_damage_rate = min(oxygen_damage_rate, max_damage_per_update)
+                apply_damage = True
+            elif life_support_level < 5:
+                # Life support LOW: Slow oxygen damage rate (5% per minute)
+                oxygen_damage_rate = (elapsed_seconds * (5 / 60.0))
+                max_damage_per_update = 5.0 # Limit max damage per update
+                oxygen_damage_rate = min(oxygen_damage_rate, max_damage_per_update)
+                apply_damage = True
+            else:
+                # Life support FUNCTIONAL: Recover oxygen damage (1% per 30 seconds)
+                recovery_rate_per_second = 1 / 30.0
+                apply_recovery = True
+                
+            # Apply damage or recovery to all crew members
+            for crew_member in all_crew:
+                is_player = (crew_member == self.player_data)
+                current_oxygen_damage = crew_member["damage"].get("oxygen", 0)
+                
+                if apply_damage and oxygen_damage_rate > 0:
+                    new_oxygen_damage = min(100, current_oxygen_damage + oxygen_damage_rate)
+                    crew_member["damage"]["oxygen"] = new_oxygen_damage
+                    
+                    # Show warnings/handle death only for the player for now
+                    if is_player:
+                        print(f"Player Oxygen damage: Current={current_oxygen_damage:.1f}%, Adding={oxygen_damage_rate:.1f}% -> New={new_oxygen_damage:.1f}% (elapsed={elapsed_seconds:.1f}s)")
+                        if current_oxygen_damage < 30 and new_oxygen_damage >= 30:
+                            self.show_oxygen_warning(30)
+                        elif current_oxygen_damage < 60 and new_oxygen_damage >= 60:
+                            self.show_oxygen_warning(60)
+                        elif current_oxygen_damage < 90 and new_oxygen_damage >= 90:
+                            self.show_oxygen_warning(90)
+                        if new_oxygen_damage >= 100:
+                            self.handle_oxygen_death()
+                    else:
+                        # Optional: Add logic here if NPCs should react to low oxygen (e.g., log event, change behavior)
+                        pass
+                        
+                elif apply_recovery and current_oxygen_damage > 0:
+                    recovery_amount = min(current_oxygen_damage, elapsed_seconds * recovery_rate_per_second)
+                    new_oxygen_damage = max(0, current_oxygen_damage - recovery_amount)
+                    crew_member["damage"]["oxygen"] = new_oxygen_damage
+                    
+                    if is_player:
+                         print(f"Player Oxygen recovery: Current={current_oxygen_damage:.1f}%, Recovered={recovery_amount:.1f}% -> New={new_oxygen_damage:.1f}% (elapsed={elapsed_seconds:.1f}s)")
+                    else:
+                        # Optional: Log NPC recovery
+                        pass
+                        
+        except Exception as e:
+            print(f"Error checking life support status for crew: {e}")
+    
     def show_oxygen_warning(self, threshold):
         """Show a warning about oxygen levels"""
         warnings = {
@@ -741,6 +726,16 @@ class SpaceStationGame:
         self.name_entry = tk.Entry(form_frame, font=("Arial", 14), width=25)
         self.name_entry.grid(row=0, column=1, pady=10)
         
+        # Random Name button
+        def set_random_name():
+            self.name_entry.delete(0, tk.END)
+            self.name_entry.insert(0, random.choice(NPC_NAMES))
+            
+        random_name_btn = tk.Button(form_frame, text="Random", font=("Arial", 12), command=set_random_name)
+        random_name_btn.grid(row=0, column=2, padx=(5, 0), pady=10)
+        
+        # Job selection
+        job_label = tk.Label(form_frame, text="Select Job:", font=("Arial", 14), bg="black", fg="white")
         # Job selection
         job_label = tk.Label(form_frame, text="Select Job:", font=("Arial", 14), bg="black", fg="white")
         job_label.grid(row=1, column=0, sticky="w", pady=10)
@@ -911,6 +906,54 @@ class SpaceStationGame:
                 "botany_station": job == "Botanist"
             }
         
+        # --- NPC Generation --- 
+        self.station_crew = [] # Reset crew list for new game
+        available_names = NPC_NAMES.copy()
+        if player_name in available_names:
+             available_names.remove(player_name) # Avoid duplicate names
+             
+        department_heads = {
+            "Captain": {"credits": 10000, "station": "bridge_station"},
+            "Head of Personnel": {"credits": 9000, "station": "hop_station"},
+            "Security Guard": {"credits": 5000, "station": "security_station"},
+            "Doctor": {"credits": 7500, "station": "medbay_station"},
+            "Engineer": {"credits": 2500, "station": "engineering_station"},
+            "Botanist": {"credits": 3000, "station": "botany_station"},
+            "Bartender": {"credits": 3500, "station": "bar_station"}
+        }
+
+        for npc_job, data in department_heads.items():
+            if npc_job != job: # If the player didn't take this job
+                if not available_names:
+                    npc_name = f"NPC_{npc_job.replace(' ', '')}" # Fallback name
+                else:
+                    npc_name = random.choice(available_names)
+                    available_names.remove(npc_name)
+
+                npc_data = {
+                    "name": npc_name,
+                    "job": npc_job,
+                    "credits": data["credits"], # Give them starting credits too
+                    "inventory": [], # Empty inventory for now
+                    "location": {"x": -1, "y": 0}, # Start in quarters for simplicity
+                    "limbs": { # Same starting health as player
+                        "left_arm": 100, "right_arm": 100, "left_leg": 100,
+                        "right_leg": 100, "chest": 100, "head": 100
+                    },
+                    "damage": {"burn": 0, "poison": 0, "oxygen": 0},
+                     "permissions": {s: (j == npc_job) for j, d in department_heads.items() for s in [d["station"]]} # Basic permission for their station
+                }
+                # Add special permissions for NPC Captain/HoP if generated
+                if npc_job == "Captain":
+                    npc_data["permissions"] = {d["station"]: True for d in department_heads.values()}
+                elif npc_job == "Head of Personnel":
+                    npc_data["permissions"]["bar_station"] = True
+                    npc_data["permissions"]["botany_station"] = True
+
+                self.station_crew.append(npc_data)
+                print(f"Generated NPC: {npc_name} ({npc_job})") # Debug print
+        # --- End NPC Generation ---
+
         # Initialize stock market with starting values
         if "stock_market" not in self.player_data:
             self.player_data["stock_market"] = {
@@ -1318,10 +1361,10 @@ class SpaceStationGame:
         self.player_data["notes"].append(note)
     
     def show_inventory_popup(self):
-        """Show a popup window with the player's inventory"""
+        """Show a popup window with the player's inventory, using item dictionaries"""
         popup = tk.Toplevel(self.root)
         popup.title("Inventory")
-        popup.geometry("400x500")  # Made taller to accommodate the read button
+        popup.geometry("400x500") # Made taller to accommodate the read button
         popup.configure(bg="black")
         
         # Ensure this window stays on top
@@ -1340,149 +1383,157 @@ class SpaceStationGame:
         title_label = tk.Label(popup, text="Inventory", font=("Arial", 18), bg="black", fg="white")
         title_label.pack(pady=10)
         
-        # Create a frame for the scrollable inventory
-        frame = tk.Frame(popup, bg="black")
-        frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        # --- Listbox Frame --- 
+        # Create a frame for the scrollable inventory (packs before buttons)
+        list_frame = tk.Frame(popup, bg="black")
+        list_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
         
-        # Add a scrollbar
-        scrollbar = tk.Scrollbar(frame)
+        # Add scrollbar to list_frame
+        scrollbar = tk.Scrollbar(list_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # Create a listbox for inventory items
-        inventory_list = tk.Listbox(frame, bg="black", fg="white", font=("Arial", 12),
-                                  width=30, height=15, yscrollcommand=scrollbar.set)
+        inventory_list = tk.Listbox(list_frame, bg="black", fg="white", font=("Arial", 12),
+                                  width=30, height=15, yscrollcommand=scrollbar.set, exportselection=False)
         inventory_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=inventory_list.yview)
         
-        # Add items to the listbox
-        if not self.player_data.get('inventory', []):
+        # --- Populate Listbox --- 
+        # Add items to the listbox (storing inventory index)
+        player_inventory = self.player_data.get('inventory', [])
+        listbox_indices = {} # Map listbox index to player inventory index
+        current_listbox_index = 0
+        if not player_inventory:
             inventory_list.insert(tk.END, "Your inventory is empty.")
+            inventory_list.itemconfig(tk.END, {'fg': "gray"})
         else:
-            for item in self.player_data['inventory']:
-                inventory_list.insert(tk.END, item)
+            for inv_index, item in enumerate(player_inventory):
+                if isinstance(item, dict) and 'name' in item:
+                    inventory_list.insert(tk.END, item['name'])
+                    listbox_indices[current_listbox_index] = inv_index # Store mapping
+                    current_listbox_index += 1
+                else:
+                    # Handle potential old string-based inventory items (or errors)
+                    inventory_list.insert(tk.END, str(item))
+                    inventory_list.itemconfig(tk.END, {'fg': "red"})
+                    listbox_indices[current_listbox_index] = inv_index # Still store index for dropping legacy items
+                    current_listbox_index += 1
         
-        # Mouse wheel binding for scrolling
+        # --- Button Frame (Packed at the bottom) --- 
+        button_frame = tk.Frame(popup, bg="black")
+        button_frame.pack(pady=(5, 10), fill=tk.X, padx=20)
+        button_frame.columnconfigure((0, 1, 2), weight=1) # 3 columns now
+
+        # --- Action Buttons (Examine, Actions, Close) --- 
+        examine_btn = tk.Button(button_frame, text="Examine", font=("Arial", 12), width=10, 
+                            command=lambda: self.examine_item(inventory_list, popup), 
+                            state=tk.DISABLED)
+        examine_btn.grid(row=0, column=0, padx=5, pady=5)
+
+        actions_btn = tk.Button(button_frame, text="Actions", font=("Arial", 12), width=10, 
+                           command=lambda: self.show_item_actions_popup(inventory_list, popup), 
+                           state=tk.DISABLED)
+        actions_btn.grid(row=0, column=1, padx=5, pady=5)
+        
+        # Close button
+        close_btn = tk.Button(button_frame, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
+        close_btn.grid(row=0, column=2, padx=5, pady=5)
+        
+        # --- Check Selection Function (Updates Examine and Actions buttons) ---
+        # Pass actions_btn as well
+        def check_selection(event=None, ex_btn=examine_btn, act_btn=actions_btn):
+            selection = inventory_list.curselection()
+            if not selection:
+                ex_btn.config(state=tk.DISABLED)
+                act_btn.config(state=tk.DISABLED)
+                return
+            
+            # Use local variables (ex_btn, act_btn) passed as arguments
+            try:
+                # Get item using helper (no index needed here, just check validity)
+                item, item_inventory_index = self._get_selected_item_from_inventory(inventory_list)
+                
+                if item is None:
+                    raise IndexError("Failed to get selected item")
+
+                if isinstance(item, dict):
+                    actions = item.get('actions', [])
+                    # Examine is always possible for dict items
+                    ex_btn.config(state=tk.NORMAL) 
+                    # Enable Actions button if there are actions OTHER than just 'examine'
+                    other_actions = [a for a in actions if a != 'examine']
+                    act_btn.config(state=tk.NORMAL if other_actions else tk.DISABLED)
+                else:
+                    # Legacy item or error
+                    ex_btn.config(state=tk.DISABLED) 
+                    act_btn.config(state=tk.DISABLED)   
+                    
+            except (IndexError, ValueError, TypeError) as e:
+                print(f"Error checking selection: {e}")
+                ex_btn.config(state=tk.DISABLED)
+                act_btn.config(state=tk.DISABLED)
+        
+        # Bind event 
+        inventory_list.bind('<<ListboxSelect>>', check_selection) 
+        # Call once initially, passing the buttons
+        check_selection(ex_btn=examine_btn, act_btn=actions_btn)
+
+        # --- Mouse wheel binding (Specific to listbox) --- 
         def _on_inventory_mousewheel(event):
             try:
                 inventory_list.yview_scroll(int(-1*(event.delta/120)), "units")
             except tk.TclError:
-                pass  # Ignore errors if the widget was destroyed
-        
-        # Bind mousewheel to inventory list
-        popup.bind("<MouseWheel>", _on_inventory_mousewheel)
-        
-        # Override destroy method to cleanup bindings
-        orig_destroy = popup.destroy
-        def _destroy_and_cleanup():
-            try:
-                popup.unbind("<MouseWheel>")
-            except:
-                pass
-            orig_destroy()
-        
-        popup.destroy = _destroy_and_cleanup
-        
-        # Button frame for actions
-        button_frame = tk.Frame(popup, bg="black")
-        button_frame.pack(pady=10)
-        
-        # Read button (only enabled when a readable item is selected)
-        read_btn = tk.Button(button_frame, text="Read Item", font=("Arial", 12), width=10, 
-                         command=lambda: self.read_book(inventory_list, popup),
-                         state=tk.DISABLED)
-        read_btn.pack(side=tk.LEFT, padx=5)
-        
-        # Close button
-        close_btn = tk.Button(button_frame, text="Close", font=("Arial", 12), width=10, command=popup.destroy)
-        close_btn.pack(side=tk.LEFT, padx=5)
-        
-        # Check if selection is a readable item
-        def check_selection(event):
-            selection = inventory_list.curselection()
-            if selection and inventory_list.get(selection[0]) in BOOK_CONTENTS:
-                read_btn.config(state=tk.NORMAL)
-            else:
-                read_btn.config(state=tk.DISABLED)
-        
-        # Bind to listbox selection
-        inventory_list.bind('<<ListboxSelect>>', check_selection)
-    
-    def read_book(self, inventory_list, parent_popup):
-        """Display the contents of a readable item"""
+                pass 
+        inventory_list.bind("<MouseWheel>", _on_inventory_mousewheel)
+        # No need to bind the frame if scrollbar is correctly linked to listbox
+
+    def _get_selected_item_from_inventory(self, inventory_list):
+        """Helper to get the selected item dictionary and its index from the inventory list."""
         selection = inventory_list.curselection()
         if not selection:
-            return
+            return None, -1 # No selection
+
+        selected_listbox_index = selection[0]
         
-        item_name = inventory_list.get(selection[0])
-        if item_name not in BOOK_CONTENTS:
-            return
+        # Need to rebuild the mapping to find the correct inventory index for the current listbox selection
+        # This is less efficient but necessary if the listbox doesn't directly store the inventory index reliably
+        # A more robust way would be to store the item_id and search inventory for that id.
+        # Let's try storing the inventory index directly in a simple list parallel to the listbox items displayed.
         
-        # Create a new window for reading
-        read_popup = tk.Toplevel(parent_popup)
-        read_popup.title(f"Reading: {item_name}")
-        read_popup.geometry("600x500")
-        read_popup.configure(bg="black")
-        read_popup.transient(parent_popup)
-        read_popup.grab_set()
-        
-        # Center the popup
-        read_popup.update_idletasks()
-        width = 600
-        height = 500
-        x = (read_popup.winfo_screenwidth() // 2) - (width // 2)
-        y = (read_popup.winfo_screenheight() // 2) - (height // 2)
-        read_popup.geometry(f"{width}x{height}+{x}+{y}")
-        
-        # Title
-        title_label = tk.Label(read_popup, text=item_name, font=("Arial", 18), bg="black", fg="white")
-        title_label.pack(pady=10)
-        
-        # Text content frame
-        content_frame = tk.Frame(read_popup, bg="black")
-        content_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
-        
-        # Add scrollbar for text
-        content_scrollbar = tk.Scrollbar(content_frame)
-        content_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        
-        # Text widget for content
-        content_text = tk.Text(content_frame, bg="black", fg="white", font=("Arial", 12),
-                             wrap=tk.WORD, yscrollcommand=content_scrollbar.set)
-        content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        content_scrollbar.config(command=content_text.yview)
-        
-        # Insert book content
-        content_text.insert(tk.END, BOOK_CONTENTS[item_name])
-        content_text.config(state=tk.DISABLED)  # Make read-only
-        
-        # Add note that player read the book
-        self.add_note(f"Read the {item_name}.")
-        
-        # Mouse wheel binding for scrolling
-        def _on_content_mousewheel(event):
-            try:
-                content_text.yview_scroll(int(-1*(event.delta/120)), "units")
-            except tk.TclError:
-                pass  # Ignore errors if the widget was destroyed
-        
-        # Bind mousewheel to content text
-        read_popup.bind("<MouseWheel>", _on_content_mousewheel)
-        
-        # Override destroy method to cleanup bindings
-        orig_destroy = read_popup.destroy
-        def _destroy_and_cleanup():
-            try:
-                read_popup.unbind("<MouseWheel>")
-            except:
-                pass
-            orig_destroy()
-        
-        read_popup.destroy = _destroy_and_cleanup
-        
-        # Close button
-        close_btn = tk.Button(read_popup, text="Close", font=("Arial", 12), width=10, command=read_popup.destroy)
-        close_btn.pack(pady=10)
-    
+        # --- REVISED APPROACH within helper --- 
+        # Re-scan inventory and listbox to find the matching index reliably after potential deletes
+        current_player_inventory = self.player_data.get("inventory", [])
+        listbox_item_count = inventory_list.size()
+        valid_item_count = 0
+        inventory_index_map = [] # List to store inventory indices corresponding to listbox entries
+
+        for inv_idx, item in enumerate(current_player_inventory):
+            if isinstance(item, dict) and 'name' in item:
+                # This assumes listbox order matches filtered inventory order
+                inventory_index_map.append(inv_idx)
+                valid_item_count += 1
+            elif isinstance(item, str): # Handle legacy strings
+                inventory_index_map.append(inv_idx)
+                valid_item_count += 1
+                
+        # Check consistency
+        if valid_item_count != listbox_item_count and listbox_item_count > 0 and inventory_list.get(0) != "Your inventory is empty.":
+            print("Warning: Listbox count doesn't match inventory item count.")
+            # Handle potential inconsistency - maybe refresh the whole popup?
+            # For now, proceed cautiously.
+            pass
+
+        if 0 <= selected_listbox_index < len(inventory_index_map):
+            item_inventory_index = inventory_index_map[selected_listbox_index]
+            if 0 <= item_inventory_index < len(current_player_inventory):
+                return current_player_inventory[item_inventory_index], item_inventory_index
+            else:
+                print(f"Error: Mapped inventory index {item_inventory_index} out of bounds.")
+                return None, -1
+        else:
+            print(f"Error: Selected listbox index {selected_listbox_index} out of bounds for map.")
+            return None, -1
+
     def show_holdings_popup(self):
         """Show a popup window with the player's stock holdings"""
         popup = tk.Toplevel(self.root)
@@ -1635,141 +1686,204 @@ class SpaceStationGame:
         inventory_frame = tk.LabelFrame(main_container, text="Your Inventory", font=("Arial", 14), bg="black", fg="white", bd=2)
         inventory_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=5)
         
-        # Locker items data - ensure all readable books are included
-        locker_items = [
-            {"name": "Welcome Guide", "description": "A guide for new station personnel"},
-            {"name": "Flashlight", "description": "A standard issue flashlight"},
-            {"name": "Station Map", "description": "A digital map of the station"},
-            {"name": "Emergency Rations", "description": "Standard emergency food supply"},
-            {"name": "Basic Tools", "description": "A set of basic maintenance tools"},
-            {"name": "ID Card Reader", "description": "Device to read crew ID cards"},
-            {"name": "Portable Scanner", "description": "Handheld scanner for analyzing objects"},
-            {"name": "Maintenance Manual", "description": "Guide for basic station repairs"},
-            {"name": "Emergency Beacon", "description": "Distress signal device for emergencies"},
-            {"name": "First Aid Kit", "description": "Basic medical supplies for minor injuries"}
+        # --- Locker items data (Uses ALL_ITEMS definitions) ---
+        # Define the IDs of items initially in the locker
+        initial_locker_item_ids = [
+            "welcome_guide", "flashlight", "station_map", "emergency_rations", 
+            "basic_tools", "id_card_reader", "portable_scanner", 
+            "maintenance_manual", "emergency_beacon", "first_aid_kit"
         ]
         
-        # Filter out items already in inventory
-        filtered_items = [item for item in locker_items if item["name"] not in self.player_data["inventory"]]
+        # Get full definitions for locker items
+        locker_item_defs = [get_item_definition(item_id) for item_id in initial_locker_item_ids if get_item_definition(item_id)]
+
+        # Filter out items the player already has (compare by ID)
+        player_inventory_ids = {item.get('id') for item in self.player_data.get("inventory", []) if isinstance(item, dict)}
+        filtered_items = [item_def for item_def in locker_item_defs if item_def.get('id') not in player_inventory_ids]
         
-        # Create scrollable canvas for locker items
+        # --- Create scrollable canvas for locker items ---
         locker_canvas = tk.Canvas(locker_frame, bg="black", highlightthickness=0)
         locker_scrollbar = tk.Scrollbar(locker_frame, orient="vertical", command=locker_canvas.yview)
-        
-        # Configure the canvas
         locker_canvas.configure(yscrollcommand=locker_scrollbar.set)
-        locker_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        locker_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Create a frame inside the canvas to hold the items
+        # Pack canvas first, then scrollbar conditionally
+        locker_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Scrollbar packed later if needed
+        
         locker_items_frame = tk.Frame(locker_canvas, bg="black")
         locker_canvas.create_window((0, 0), window=locker_items_frame, anchor="nw")
         
-        # Populate locker items frame
+        # --- Populate locker items frame (using item dictionaries) ---
         if not filtered_items:
             empty_label = tk.Label(locker_items_frame, text="The storage locker is empty.", font=("Arial", 12), bg="black", fg="white")
             empty_label.pack(pady=10, padx=10, anchor="w")
         else:
-            for i, item in enumerate(filtered_items):
+            for i, item_def in enumerate(filtered_items):
                 item_frame = tk.Frame(locker_items_frame, bg="dark gray", bd=2, relief=tk.RAISED, width=300)
                 item_frame.pack(fill=tk.X, pady=5, padx=5)
                 
-                # Item info
                 info_frame = tk.Frame(item_frame, bg="dark gray")
                 info_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, anchor="w")
                 
-                item_name = tk.Label(info_frame, text=item["name"], font=("Arial", 12, "bold"), bg="dark gray")
-                item_name.pack(anchor="w", padx=10, pady=(5, 0))
+                item_name_label = tk.Label(info_frame, text=item_def.get('name', 'Unknown Item'), font=("Arial", 12, "bold"), bg="dark gray")
+                item_name_label.pack(anchor="w", padx=10, pady=(5, 0))
                 
-                item_desc = tk.Label(info_frame, text=item["description"], font=("Arial", 10), bg="dark gray", wraplength=200)
-                item_desc.pack(anchor="w", padx=10, pady=(0, 5))
+                item_desc_label = tk.Label(info_frame, text=item_def.get('description', ''), font=("Arial", 10), bg="dark gray", wraplength=200)
+                item_desc_label.pack(anchor="w", padx=10, pady=(0, 5))
                 
-                # Take button on the right
                 button_frame = tk.Frame(item_frame, bg="dark gray")
                 button_frame.pack(side=tk.RIGHT, padx=10, pady=5)
                 
+                # Pass the item ID to take_item
                 take_btn = tk.Button(button_frame, text="Take", font=("Arial", 10),
-                                    command=lambda i=item["name"]: self.take_item(i))
+                                    command=lambda item_id=item_def.get('id'): self.take_item(item_id))
                 take_btn.pack()
         
-        # Create scrollable canvas for inventory items
+        # --- Create scrollable canvas for inventory items ---
         inventory_canvas = tk.Canvas(inventory_frame, bg="black", highlightthickness=0)
         inventory_scrollbar = tk.Scrollbar(inventory_frame, orient="vertical", command=inventory_canvas.yview)
-        
-        # Configure the canvas
         inventory_canvas.configure(yscrollcommand=inventory_scrollbar.set)
-        inventory_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        inventory_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Create a frame inside the canvas to hold the items
+        # Pack canvas first, then scrollbar conditionally
+        inventory_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Scrollbar packed later if needed
+
         inventory_items_frame = tk.Frame(inventory_canvas, bg="black")
         inventory_canvas.create_window((0, 0), window=inventory_items_frame, anchor="nw")
         
-        # Populate inventory items
-        if not self.player_data["inventory"]:
+        # --- Populate inventory items (using item dictionaries) ---
+        player_inventory = self.player_data.get("inventory", [])
+        if not player_inventory:
             empty_label = tk.Label(inventory_items_frame, text="Your inventory is empty.", font=("Arial", 12), bg="black", fg="white")
             empty_label.pack(pady=10, padx=10, anchor="w")
         else:
-            for i, item in enumerate(self.player_data["inventory"]):
+            for i, item_def in enumerate(player_inventory):
                 item_frame = tk.Frame(inventory_items_frame, bg="dark gray", bd=2, relief=tk.RAISED, width=300)
                 item_frame.pack(fill=tk.X, pady=5, padx=5)
                 
-                # Item info - just the name for inventory items
-                name_label = tk.Label(item_frame, text=item, font=("Arial", 12, "bold"), bg="dark gray")
+                # Display item name
+                name_text = str(item_def) # Fallback for non-dict items
+                item_color = "red"        # Default color for errors/legacy
+                if isinstance(item_def, dict) and 'name' in item_def:
+                    name_text = item_def['name']
+                    item_color = "white" # Normal color for dict items
+                
+                name_label = tk.Label(item_frame, text=name_text, font=("Arial", 12, "bold"), bg="dark gray", fg=item_color)
                 name_label.pack(side=tk.LEFT, padx=10, pady=5, anchor="w")
                 
-                # Store button on the right
+                # Pass the index to store_item
                 store_btn = tk.Button(item_frame, text="Store in Locker", font=("Arial", 10),
-                                    command=lambda i=item: self.store_item(i))
+                                    command=lambda index=i: self.store_item(index)) # Pass index
                 store_btn.pack(side=tk.RIGHT, padx=10, pady=5)
         
-        # Configure the canvas to scroll properly
-        locker_items_frame.update_idletasks()
-        locker_canvas.config(scrollregion=locker_canvas.bbox("all"))
+        # --- Configure canvas scrolling and back button --- 
         
-        inventory_items_frame.update_idletasks()
-        inventory_canvas.config(scrollregion=inventory_canvas.bbox("all"))
+        # Function to configure scroll region and show/hide scrollbar
+        def configure_scroll(canvas, scrollbar, items_frame):
+            canvas.update_idletasks() # Ensure frame size is calculated
+            canvas.config(scrollregion=canvas.bbox("all"))
+            # Check if content height exceeds canvas height
+            if items_frame.winfo_reqheight() > canvas.winfo_reqheight():
+                scrollbar.pack(side=tk.RIGHT, fill=tk.Y) # Show scrollbar
+            else:
+                scrollbar.pack_forget() # Hide scrollbar
         
-        # Mouse wheel scrolling
-        locker_canvas.bind_all("<MouseWheel>", lambda event: self._on_mousewheel(event, locker_canvas))
-        inventory_canvas.bind_all("<MouseWheel>", lambda event: self._on_mousewheel(event, inventory_canvas))
-        
-        # Back button
-        back_btn = tk.Button(self.root, text="Back to Room", font=("Arial", 14), width=15, command=lambda: self._exit_storage(locker_canvas, inventory_canvas))
+        # Configure scroll regions initially
+        configure_scroll(locker_canvas, locker_scrollbar, locker_items_frame)
+        configure_scroll(inventory_canvas, inventory_scrollbar, inventory_items_frame)
+
+        # Mousewheel scrolling - bind directly to each canvas
+        def _on_locker_mousewheel(event):
+            locker_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        def _on_inventory_mousewheel(event):
+            inventory_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+
+        locker_canvas.bind("<MouseWheel>", _on_locker_mousewheel)
+        locker_items_frame.bind("<MouseWheel>", _on_locker_mousewheel) # Bind frame too
+        inventory_canvas.bind("<MouseWheel>", _on_inventory_mousewheel)
+        inventory_items_frame.bind("<MouseWheel>", _on_inventory_mousewheel) # Bind frame too
+
+        # Back button (needs to unbind events)
+        back_btn = tk.Button(self.root, text="Back to Room", font=("Arial", 14), width=15, 
+                           command=lambda lc=locker_canvas, ic=inventory_canvas: self._exit_storage(lc, ic))
         back_btn.pack(pady=20)
     
-    def _exit_storage(self, *canvases):
+    def _exit_storage(self, locker_canvas, inventory_canvas):
         """Clean up bindings before exiting storage view"""
-        # Unbind all mouse wheel handlers
-        for canvas in canvases:
-            try:
-                canvas.unbind_all("<MouseWheel>")
-            except:
-                pass
+        # Unbind specific mouse wheel handlers
+        try:
+            locker_canvas.unbind("<MouseWheel>")
+            # Find the frame inside the canvas to unbind it too (more robust needed if structure changes)
+            locker_items_frame = locker_canvas.winfo_children()[0] 
+            locker_items_frame.unbind("<MouseWheel>")
+        except Exception as e:
+            print(f"Error unbinding locker scroll: {e}")
+            pass
+        try:
+            inventory_canvas.unbind("<MouseWheel>")
+            inventory_items_frame = inventory_canvas.winfo_children()[0]
+            inventory_items_frame.unbind("<MouseWheel>")
+        except Exception as e:
+            print(f"Error unbinding inventory scroll: {e}")
+            pass
         # Return to room view
         self.show_room()
     
-    def _on_mousewheel(self, event, canvas):
-        """Handle mouse wheel scrolling"""
-        try:
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        except tk.TclError:
-            pass  # Ignore errors if the canvas was destroyed
-    
-    def take_item(self, item_name):
-        if item_name not in self.player_data["inventory"]:
-            self.player_data["inventory"].append(item_name)
+    def take_item(self, item_id):
+        """Takes an item from the locker based on its ID."""
+        if not item_id:
+            messagebox.showerror("Error", "Invalid item ID provided.")
+            return
+
+        # Get the item definition
+        item_def = get_item_definition(item_id)
+        if not item_def:
+            messagebox.showerror("Error", f"Could not find definition for item ID: {item_id}.")
+            return
+
+        item_name = item_def.get("name", "Unknown Item")
+
+        # Check if player already has this item ID
+        player_inventory = self.player_data.setdefault("inventory", [])
+        has_item = any(isinstance(inv_item, dict) and inv_item.get('id') == item_id for inv_item in player_inventory)
+        
+        if not has_item:
+            player_inventory.append(item_def) # Add the dictionary
             messagebox.showinfo("Item Taken", f"You took the {item_name}.")
+            # Add note
+            self.add_note(f"Took {item_name} ({item_id}) from locker.")
             self.show_storage()  # Refresh the storage view
         else:
-            messagebox.showinfo("Already Taken", f"You already have the {item_name}.")
-    
-    def store_item(self, item_name):
-        if item_name in self.player_data["inventory"]:
-            self.player_data["inventory"].remove(item_name)
-            messagebox.showinfo("Item Stored", f"You placed the {item_name} in the storage locker.")
-            self.show_storage()  # Refresh the storage view
-    
+             messagebox.showinfo("Already Have It", f"You already have a {item_name}.")
+
+    def store_item(self, item_index):
+        """Stores an item from the inventory into the locker, using the item's index."""
+        player_inventory = self.player_data.get("inventory", [])
+        
+        if not (0 <= item_index < len(player_inventory)):
+             messagebox.showerror("Error", f"Invalid item index.")
+             return
+
+        # Get the item dictionary using the index
+        item_to_store = player_inventory[item_index]
+        
+        # Prefer name from dict if available
+        item_name = str(item_to_store) # Fallback
+        item_id = None
+        if isinstance(item_to_store, dict):
+            item_name = item_to_store.get('name', 'Unknown Item')
+            item_id = item_to_store.get('id')
+
+        # Remove item from player data by index
+        del player_inventory[item_index]
+        messagebox.showinfo("Item Stored", f"You placed the {item_name} in the storage locker.")
+        
+        # Add note
+        note_text = f"Stored {item_name}" + (f" ({item_id})" if item_id else "") + " in locker."
+        self.add_note(note_text)
+
+        self.show_storage() # Refresh the storage view
+
     def show_computer(self):
         # Clear the window
         for widget in self.root.winfo_children():
@@ -2468,37 +2582,90 @@ class SpaceStationGame:
         # Import special room classes
         from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar, Botany
         from game.quarters import Quarters
-        
-        # Add the ship_map to player_data for special rooms to access
+
+        # Add the ship_map to player_data temporarily for special rooms to access
         self.player_data["ship_map"] = self.ship_map
         
+        room_instance = None
         if room_name == "MedBay":
-            # Open MedBay
-            medbay = MedBay(self.root, self.player_data, self.update_player_data_from_room)
+            # Pass station_crew as a separate argument
+            room_instance = MedBay(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
         elif room_name == "Bridge":
-            # Open Bridge
-            bridge = Bridge(self.root, self.player_data, self.update_player_data_from_room)
+            room_instance = Bridge(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
         elif room_name == "Security":
-            # Open Security
-            security = Security(self.root, self.player_data, self.update_player_data_from_room)
+            room_instance = Security(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
         elif room_name == "Engineering":
-            # Open Engineering Bay
-            engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
+            room_instance = Engineering(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
         elif room_name == "Bar":
-            # Open Bar
-            bar = Bar(self.root, self.player_data, self.update_player_data_from_room)
+            room_instance = Bar(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
         elif room_name == "Botany":
-            # Open Botany Lab
-            botany = Botany(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Quarters":
-            # Return to quarters
-            quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
-    
-    def update_player_data_from_room(self, updated_data):
-        """Update player data when returning from a room"""
-        # Update player data
-        self.player_data = updated_data
+            room_instance = Botany(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Quarters": # Quarters might not need crew data, adjust if needed
+            room_instance = Quarters(self.root, self.player_data, self.update_player_data_from_room) # Assuming Quarters doesn't need crew
+
+        # Clean up temporary data added to player_data after room is created
+        if "ship_map" in self.player_data:
+            del self.player_data["ship_map"]
+
+    def enter_special_room_at(self, room_name, target_key):
+        """Enter a special room at a specified target location"""
+        # Get room details
+        room_details = self.ship_map.get(target_key)
+        if not room_details:
+            return # Invalid target key
         
+        # Check if room is locked
+        if room_details.get("locked", False):
+            messagebox.showinfo("Locked", f"The {room_name} door is locked.")
+            return
+        
+        # Update player location to the special room's coordinates
+        self.player_data["location"] = {"x": int(target_key.split(',')[0]), "y": int(target_key.split(',')[1])}
+        
+        # Add ship_map temporarily
+        self.player_data["ship_map"] = self.ship_map
+
+        # Import special room classes
+        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar, Botany
+        from game.quarters import Quarters
+
+        room_instance = None
+        # Create room instance (passing player_data and station_crew)
+        if room_name == "MedBay":
+            room_instance = MedBay(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Bridge":
+             room_instance = Bridge(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Security":
+            room_instance = Security(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Engineering":
+            room_instance = Engineering(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Bar":
+             room_instance = Bar(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Botany":
+             room_instance = Botany(self.root, self.player_data, self.station_crew, self.update_player_data_from_room)
+        elif room_name == "Quarters": # Quarters might not need crew data
+             room_instance = Quarters(self.root, self.player_data, self.update_player_data_from_room)
+
+        # Clean up temporary data
+        if "ship_map" in self.player_data:
+            del self.player_data["ship_map"]
+
+    def update_player_data_from_room(self, updated_player_data, updated_station_crew=None):
+        """Update player and crew data when returning from a room"""
+        # Remove temporary keys from player data if they exist
+        ship_map_from_room = updated_player_data.pop("ship_map", None)
+
+        # Update player data
+        self.player_data = updated_player_data
+
+        # Update station_crew ONLY if it was passed back
+        if updated_station_crew is not None:
+             self.station_crew = updated_station_crew
+
+        # Update ship_map if it was modified in the special room
+        if ship_map_from_room:
+            self.ship_map = ship_map_from_room
+            
         # Ensure market thread is running
         if not self.market_running:
             self.start_market_thread()
@@ -2507,37 +2674,32 @@ class SpaceStationGame:
         if not self.battery_timer_running:
             self.start_battery_timer()
         
-        # Return to the previous position in the hallway
-        # (not the room position, which causes loops)
+        # Determine the correct hallway position based on the room exited
         x = self.player_data["location"]["x"]
         y = self.player_data["location"]["y"]
         
-        # If we're in a special room, move back to the previous position
-        if (x == 6 and y == 0) or (x == 0 and y == 6) or (x == 6 and y == 6) or (x == 6 and y == 3) or (x == 0 and y == -1) or (x == 3 and y == -1):
-            # For Engineering Bay specifically, return to the hallway entrance
-            if x == 6 and y == 3:
-                self.player_data["location"]["x"] = 5
-                self.player_data["location"]["y"] = 3
-            # For Bar specifically, return to the hallway entrance
-            elif x == 0 and y == -1:
-                self.player_data["location"]["x"] = 0
-                self.player_data["location"]["y"] = 3
-            # For Botany Lab specifically, return to the hallway entrance
-            elif x == 3 and y == -1:
-                self.player_data["location"]["x"] = 3
-                self.player_data["location"]["y"] = 0
-            else:
-                prev_x, prev_y = self.get_previous_position()
-                self.player_data["location"]["x"] = prev_x
-                self.player_data["location"]["y"] = prev_y
+        # Determine correct hallway return position
+        return_x, return_y = x, y # Default to current if not a special room exit
+        if x == 6 and y == 0: # Exited Bridge
+            return_x, return_y = 5, 0
+        elif x == 0 and y == 6: # Exited MedBay
+            return_x, return_y = 0, 5
+        elif x == 6 and y == 6: # Exited Security
+            return_x, return_y = 5, 5
+        elif x == 6 and y == 3: # Exited Engineering
+            return_x, return_y = 5, 3
+        elif x == 0 and y == -1: # Exited Bar
+            return_x, return_y = 0, 3
+        elif x == 3 and y == -1: # Exited Botany
+            return_x, return_y = 3, 0
+        elif x == -1 and y == 0: # Exited Quarters
+            return_x, return_y = 0, 0
         
-        # Update ship_map if it was modified in the special room
-        if "ship_map" in self.player_data:
-            self.ship_map = self.player_data["ship_map"]
-            # Remove it from player_data to keep it clean
-            del self.player_data["ship_map"]
+        # Set the player's location to the correct adjacent hallway tile
+        self.player_data["location"]["x"] = return_x
+        self.player_data["location"]["y"] = return_y
         
-        # Show hallway screen
+        # Show hallway screen at the new position
         self.show_hallway()
 
     def unlock_door(self):
@@ -2638,44 +2800,6 @@ class SpaceStationGame:
             
         return False
 
-    def enter_special_room_at(self, room_name, target_key):
-        """Enter a special room at a specified target location"""
-        # Check if the room is locked
-        if self.ship_map[target_key].get("locked", False):
-            messagebox.showinfo("Locked Door", f"The {room_name} door is locked. You need to unlock it first.")
-            return
-        
-        # Store current position before entering room
-        current_x = self.player_data["location"]["x"]
-        current_y = self.player_data["location"]["y"]
-        
-        # Navigate to the target location temporarily
-        self.player_data["location"]["x"] = int(target_key.split(",")[0])
-        self.player_data["location"]["y"] = int(target_key.split(",")[1])
-        
-        # Add the ship_map to player_data for special rooms to access
-        self.player_data["ship_map"] = self.ship_map
-        
-        # Import special room classes
-        from game.special_rooms import MedBay, Bridge, Security, Engineering, Bar, Botany
-        from game.quarters import Quarters
-        
-        # Open the appropriate room
-        if room_name == "MedBay":
-            medbay = MedBay(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Bridge":
-            bridge = Bridge(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Security":
-            security = Security(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Engineering":
-            engineering = Engineering(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Bar":
-            bar = Bar(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Botany":
-            botany = Botany(self.root, self.player_data, self.update_player_data_from_room)
-        elif room_name == "Quarters":
-            quarters = Quarters(self.root, self.player_data, self.update_player_data_from_room)
-
     def save_and_exit(self):
         """Save the game and exit to main menu"""
         # Update market data before saving
@@ -2697,42 +2821,34 @@ class SpaceStationGame:
         self.show_main_menu()
 
     def add_random_item(self):
-        """Add a random item to the player's inventory"""
-        items = [
-            "Medkit",
-            "Repair Tool",
-            "Flashlight",
-            "Energy Bar",
-            "Circuit Board",
-            "Battery Pack",
-            "ID Card",
-            "Data Pad",
-            "Oxygen Canister",
-            "Radiation Badge",
-            "Maintenance Tool",
-            "Security Pass",
-            "Medical Scanner",
-            "Communication Device",
-            "Power Cell",
-            "Stabilizing Agent",
-            "Diagnostic Tool",
-            "Engineering Manual",
-            "Security Keycard",
-            "Medical Supply Kit",
-            "Emergency Flare",
-            "Navigation Chart",
-            "Encrypted Data Drive"
-        ]
-        item = random.choice(items)
+        """Add a random item (using item definitions) to the player's inventory"""
+        # Get all available item IDs from the master list
+        available_item_ids = list(ALL_ITEMS.keys())
         
-        if "inventory" not in self.player_data:
-            self.player_data["inventory"] = []
+        if not available_item_ids:
+            messagebox.showwarning("Error", "No items defined to be found.")
+            return
             
-        self.player_data["inventory"].append(item)
-        messagebox.showinfo("Item Found", f"You found a {item} and added it to your inventory.")
+        # Choose a random item ID
+        item_id = random.choice(available_item_ids)
+        
+        # Get a copy of the item definition
+        item_def = get_item_definition(item_id)
+        
+        if not item_def:
+            messagebox.showerror("Error", f"Could not find definition for random item ID: {item_id}")
+            return
+
+        # Ensure inventory list exists
+        self.player_data.setdefault("inventory", [])
+            
+        # Add the item dictionary to inventory
+        self.player_data["inventory"].append(item_def)
+        item_name = item_def.get("name", "an item")
+        messagebox.showinfo("Item Found", f"You found {item_name} and added it to your inventory.")
         
         # Add note about the item found
-        self.add_note(f"Found {item} and added it to inventory.")
+        self.add_note(f"Found {item_name} ({item_id}) and added it to inventory.")
     
     def add_market_knowledge(self):
         """Add market knowledge to the player - reveals a tip about a stock"""
@@ -2767,6 +2883,327 @@ class SpaceStationGame:
         
         announcement = random.choice(announcements)
         messagebox.showinfo("Station Announcement", f"The PA system crackles: '{announcement}'")
+
+    def examine_item(self, inventory_list, parent_popup):
+        """Show the description of the selected item."""
+        # Use the helper function to get the item and its index
+        item, item_inventory_index = self._get_selected_item_from_inventory(inventory_list)
+        
+        if not item: # Check if helper returned None
+            messagebox.showerror("Error", "Could not identify the selected item.", parent=parent_popup)
+            return
+
+        # Check if it's a valid dictionary item (strings can't be examined)
+        if not isinstance(item, dict):
+            messagebox.showinfo("Cannot Examine", "This item cannot be examined properly.", parent=parent_popup)
+            return
+        
+        item_name = item.get('name', 'Unknown Item')
+        description = item.get('description', 'No description available.')
+        
+        # Add note
+        self.add_note(f"Examined the {item_name}.")
+
+        messagebox.showinfo(f"Examine: {item_name}", description, parent=parent_popup)
+            
+    def drop_item(self, inventory_list, parent_popup):
+        """Remove the selected item from inventory."""
+        # Use the helper function to get the item and its index
+        item, item_inventory_index = self._get_selected_item_from_inventory(inventory_list)
+        
+        if item is None or item_inventory_index == -1:
+             messagebox.showerror("Error", "Could not identify the selected item to drop.", parent=parent_popup)
+             return
+
+        # Allow dropping legacy string items or dict items with 'drop' action
+        can_drop = False
+        item_name = str(item) # Default name for display/note
+        if isinstance(item, dict):
+            if 'drop' in item.get('actions', []):
+                can_drop = True
+                item_name = item.get('name', 'Unknown Item') # Get proper name
+        else: # Assume legacy strings can be dropped
+            can_drop = True 
+
+        if not can_drop:
+            messagebox.showwarning("Cannot Drop", "This item cannot be dropped.", parent=parent_popup)
+            return
+        
+        # Confirm drop with updated message
+        if not messagebox.askyesno("Confirm Drop", 
+                                f"Are you sure you want to drop the {item_name}? It will be gone forever!", 
+                                parent=parent_popup):
+            return
+
+        try:
+            # Remove item from player data using the correct index
+            del self.player_data['inventory'][item_inventory_index]
+            
+            # Refresh the popup to show changes correctly
+            parent_popup.destroy()
+            self.show_inventory_popup()
+            
+            # Add note
+            self.add_note(f"Dropped the {item_name}.")
+            
+        except (IndexError, ValueError, TypeError) as e:
+            print(f"Error dropping item: {e}")
+            messagebox.showerror("Error", "Could not drop the selected item.", parent=parent_popup)
+
+    def read_item(self, inventory_list, parent_popup):
+        """Display the contents of a readable item (book, note, etc.)"""
+        item, item_inventory_index = self._get_selected_item_from_inventory(inventory_list)
+        
+        if not item: # Check if helper returned None
+            messagebox.showerror("Error", "Could not identify the selected item.", parent=parent_popup)
+            return
+
+        if not isinstance(item, dict) or 'read' not in item.get('actions', []):
+            messagebox.showwarning("Cannot Read", "This item cannot be read.", parent=parent_popup)
+            return
+            
+        item_name = item.get('name', 'Readable Item')
+        content = item.get('attributes', {}).get('content', '[No content found]')
+
+        # Create a new window for reading
+        read_popup = tk.Toplevel(parent_popup)
+        read_popup.title(f"Reading: {item_name}")
+        read_popup.geometry("600x500")
+        read_popup.configure(bg="black")
+        read_popup.transient(parent_popup)
+        read_popup.grab_set()
+        
+        # Center the popup
+        # ... (centering code) ...
+        
+        # Title
+        title_label = tk.Label(read_popup, text=item_name, font=("Arial", 18), bg="black", fg="white")
+        title_label.pack(pady=10)
+        
+        # Text content frame
+        content_frame = tk.Frame(read_popup, bg="black")
+        content_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Add scrollbar for text
+        content_scrollbar = tk.Scrollbar(content_frame)
+        content_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Text widget for content
+        content_text = tk.Text(content_frame, bg="black", fg="white", font=("Arial", 12),
+                             wrap=tk.WORD, yscrollcommand=content_scrollbar.set)
+        content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        content_scrollbar.config(command=content_text.yview)
+        
+        # Insert item content
+        content_text.insert(tk.END, content)
+        content_text.config(state=tk.DISABLED)  # Make read-only
+        
+        # Add note that player read the item
+        self.add_note(f"Read the {item_name}.")
+        
+        # Mouse wheel binding for scrolling
+        # ... (mousewheel binding and cleanup for read_popup) ...
+        
+        # Close button
+        close_btn = tk.Button(read_popup, text="Close", font=("Arial", 12), width=10, command=read_popup.destroy)
+        close_btn.pack(pady=10)
+
+    # --- Action methods --- 
+    # _get_selected_item_from_inventory (Helper, remains the same)
+    # ...
+    
+    # examine_item (Remains the same, called directly)
+    # ...
+
+    # read_item (Will be called by action popup, needs slight modification if context changes)
+    # ...
+
+    # drop_item (Will be called by action popup, needs slight modification)
+    # ...
+
+    # NEW: Method to show the actions popup
+    def show_item_actions_popup(self, inventory_list, main_inventory_popup):
+        """Shows a popup with available actions for the selected item."""
+        item, item_inventory_index = self._get_selected_item_from_inventory(inventory_list)
+
+        if not isinstance(item, dict):
+            messagebox.showerror("Error", "Cannot perform actions on this item.", parent=main_inventory_popup)
+            return
+
+        item_name = item.get('name', 'Item')
+        actions = item.get('actions', [])
+        available_actions = [a for a in actions if a != 'examine'] # Exclude examine
+
+        if not available_actions:
+            messagebox.showinfo("No Actions", f"No special actions available for {item_name}.", parent=main_inventory_popup)
+            return
+
+        # Create the actions popup
+        actions_popup = tk.Toplevel(main_inventory_popup)
+        actions_popup.title(f"Actions: {item_name}")
+        actions_popup.configure(bg="black")
+        actions_popup.transient(main_inventory_popup)
+        actions_popup.grab_set()
+
+        action_frame = tk.Frame(actions_popup, bg="black", padx=15, pady=15)
+        action_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create buttons for each available action
+        for action in available_actions:
+            action_text = action.capitalize()
+            callback = None
+            
+            # Map action string to the corresponding method
+            if action == "read":
+                # Pass item directly, plus the new actions_popup for context
+                callback = lambda i=item, p=actions_popup: self.read_item_action(i, p)
+            elif action == "drop":
+                # Pass index and both popups for refresh logic
+                callback = lambda idx=item_inventory_index, ap=actions_popup, mp=main_inventory_popup: self.drop_item_action(idx, ap, mp)
+            # elif action == "use":
+                # callback = lambda i=item, idx=item_inventory_index, ap=actions_popup, mp=main_inventory_popup: self.use_item_action(i, idx, ap, mp)
+            # elif action == "eat":
+                # callback = lambda i=item, idx=item_inventory_index, ap=actions_popup, mp=main_inventory_popup: self.eat_item_action(i, idx, ap, mp)
+            # Add more actions here... 
+            else:
+                # Placeholder for unhandled actions
+                callback = lambda a=action: messagebox.showinfo("WIP", f"Action '{a}' not yet implemented.", parent=actions_popup)
+
+            if callback:
+                btn = tk.Button(action_frame, text=action_text, font=("Arial", 12), width=15, command=callback)
+                btn.pack(pady=5)
+        
+        # Add a Cancel button
+        cancel_btn = tk.Button(action_frame, text="Cancel", font=("Arial", 12), width=15, command=actions_popup.destroy)
+        cancel_btn.pack(pady=(10,0))
+        
+        # Dynamically adjust height based on button count
+        num_buttons = len(available_actions) + 1 # +1 for Cancel
+        height = num_buttons * 45 + 40 # Approx height per button + padding
+        actions_popup.geometry(f"250x{height}")
+
+    # --- NEW Action-Specific Methods --- 
+    def read_item_action(self, item, actions_popup):
+        """Action handler for reading an item. Displays content in a new window."""
+        # Logic moved from old read_item
+        if not isinstance(item, dict) or 'read' not in item.get('actions', []):
+            messagebox.showwarning("Cannot Read", "This item cannot be read.", parent=actions_popup)
+            return
+            
+        item_name = item.get('name', 'Readable Item')
+        content = item.get('attributes', {}).get('content', '[No content found]')
+
+        # Create a new window specifically for reading content
+        read_content_popup = tk.Toplevel(actions_popup) # Parent is the actions popup
+        read_content_popup.title(f"Reading: {item_name}")
+        read_content_popup.geometry("600x500")
+        read_content_popup.configure(bg="black")
+        read_content_popup.transient(actions_popup)
+        read_content_popup.grab_set()
+        
+        # Center the popup
+        read_content_popup.update_idletasks()
+        width = 600
+        height = 500
+        x = (read_content_popup.winfo_screenwidth() // 2) - (width // 2)
+        y = (read_content_popup.winfo_screenheight() // 2) - (height // 2)
+        read_content_popup.geometry(f"{width}x{height}+{x}+{y}")
+
+        # Title
+        title_label = tk.Label(read_content_popup, text=item_name, font=("Arial", 18), bg="black", fg="white")
+        title_label.pack(pady=10)
+        
+        # Text content frame
+        content_frame = tk.Frame(read_content_popup, bg="black")
+        content_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        # Add scrollbar for text
+        content_scrollbar = tk.Scrollbar(content_frame)
+        content_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Text widget for content
+        content_text = tk.Text(content_frame, bg="black", fg="white", font=("Arial", 12),
+                             wrap=tk.WORD, yscrollcommand=content_scrollbar.set)
+        content_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        content_scrollbar.config(command=content_text.yview)
+        
+        # Insert item content
+        content_text.insert(tk.END, content)
+        content_text.config(state=tk.DISABLED)  # Make read-only
+        
+        # Add note that player read the item
+        self.add_note(f"Read the {item_name}.")
+        
+        # Mouse wheel binding for scrolling within the read popup
+        def _on_read_content_mousewheel(event):
+            try:
+                content_text.yview_scroll(int(-1*(event.delta/120)), "units")
+            except tk.TclError:
+                pass
+        read_content_popup.bind("<MouseWheel>", _on_read_content_mousewheel)
+        
+        # Cleanup binding on close
+        orig_destroy = read_content_popup.destroy
+        def _destroy_and_cleanup_read():
+            try: read_content_popup.unbind("<MouseWheel>") 
+            except: pass
+            orig_destroy()
+        read_content_popup.destroy = _destroy_and_cleanup_read
+        
+        # Close button for the read popup
+        close_read_btn = tk.Button(read_content_popup, text="Close", font=("Arial", 12), width=10, command=read_content_popup.destroy)
+        close_read_btn.pack(pady=10)
+        
+        # Do NOT close the actions_popup automatically
+
+    def drop_item_action(self, item_inventory_index, actions_popup, main_inventory_popup):
+        """Action handler for dropping an item. Refreshes main inventory."""
+        # Logic moved from old drop_item, using passed index
+        if not (0 <= item_inventory_index < len(self.player_data['inventory'])):
+             messagebox.showerror("Error", "Invalid item index provided for drop action.", parent=actions_popup)
+             return
+
+        item = self.player_data['inventory'][item_inventory_index]
+        item_name = item.get('name', str(item)) if isinstance(item, dict) else str(item)
+        
+        # Confirm drop 
+        if not messagebox.askyesno("Confirm Drop", 
+                                f"Are you sure you want to drop the {item_name}? It will be gone forever!", 
+                                parent=actions_popup):
+            return
+
+        try:
+            # Remove item from player data using the correct index
+            del self.player_data['inventory'][item_inventory_index]
+            
+            # Close the actions popup FIRST
+            actions_popup.destroy()
+            
+            # THEN Refresh the main inventory popup by closing and reopening it
+            main_inventory_popup.destroy()
+            self.show_inventory_popup() 
+            
+            # Add note
+            self.add_note(f"Dropped the {item_name}.")
+            
+        except (IndexError, ValueError, TypeError) as e:
+            print(f"Error dropping item via action: {e}")
+            messagebox.showerror("Error", "Could not drop the selected item.", parent=actions_popup)
+    
+    # Placeholder for use_item_action, eat_item_action etc.
+    def use_item_action(self, item, index, actions_popup, main_inventory_popup):
+         messagebox.showinfo("WIP", f"Action 'use' for {item.get('name', 'item')} not yet implemented.", parent=actions_popup)
+
+    def eat_item_action(self, item, index, actions_popup, main_inventory_popup):
+         messagebox.showinfo("WIP", f"Action 'eat' for {item.get('name', 'item')} not yet implemented.", parent=actions_popup)
+
+    # Delete the old, now unused methods
+    # def read_item(self, inventory_list, parent_popup):
+    #     pass # Logic moved to read_item_action
+    # def drop_item(self, inventory_list, parent_popup):
+    #     pass # Logic moved to drop_item_action
+
+    # ... (rest of the class) ...
 
 if __name__ == "__main__":
     root = tk.Tk()
