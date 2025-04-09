@@ -2,7 +2,8 @@
 A Vibe Coding experiement, based on Space Station 13
 
 ## Notes
-* Made using Claude 3.7 Max in Cursor (minimum $.05 per call)
+~~* Made using Claude 3.7 Max in Cursor (minimum $.05 per call)~~
+* Every release after 33.2.5 is using Gemini 2.5 Max (Same minimum cost)
 * I am making branches at price points to track progress.
 
 ### Releases
@@ -27,4 +28,9 @@ A Vibe Coding experiement, based on Space Station 13
     * ~$1.10 for doing the .exe build, and to remove the linux builder I didn't ask for
     * The rest was some minor bug fixes and adding the read ability.
   * release 16.9.5 - Added 2 new roles: Head of Personnel and Botanist. Added new stations. Also added drink mixing. 
-    * The average prompt is now costing ~$0.25, instead of ~$.15 per prompt for any non-minor change.   
+    * The average prompt is now costing ~$0.25, instead of ~$.15 per prompt for any non-minor change.
+  * release 33.2.5 - Added new damage types(no med changes yet), added engineering power functionality, added basic atmospherics
+    * This release was painful. Everything up to release 32 was 10% me prompting, 85% Claude messing up, and 5% me trying to fix
+    * As a test, I tried Gemini 2.5 Max. 
+    * I was able to fix everything within 2 prompts
+    * Gemini 2.5 Max is primiary from here on out  
