@@ -1257,15 +1257,16 @@ class Engineering:
         """Open the fabricator interface using the new item system"""
         fab_popup = tk.Toplevel(self.engineering_window)
         fab_popup.title("Fabricator")
-        fab_popup.geometry("600x400")
+        fab_popup.geometry("600x450") # Adjusted height slightly
         fab_popup.configure(bg="black")
         fab_popup.transient(self.engineering_window)
         fab_popup.grab_set()
+        fab_popup.focus_force() # Ensure focus
 
         # Center the popup
         fab_popup.update_idletasks()
         width = 600
-        height = 400
+        height = 450
         x = (fab_popup.winfo_screenwidth() // 2) - (width // 2)
         y = (fab_popup.winfo_screenheight() // 2) - (height // 2)
         fab_popup.geometry(f"{width}x{height}+{x}+{y}")
@@ -1279,18 +1280,30 @@ class Engineering:
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
         # Left frame for categories
-        category_frame = tk.LabelFrame(main_frame, text="Categories", font=("Arial", 12), bg="black", fg="white")
-        category_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+        category_outer_frame = tk.LabelFrame(main_frame, text="Categories", font=("Arial", 12), bg="black", fg="white")
+        category_outer_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
 
-        category_listbox = tk.Listbox(category_frame, bg="black", fg="white", font=("Arial", 12), width=15, exportselection=False)
-        category_listbox.pack(pady=5, padx=5, fill=tk.Y, expand=True)
+        category_scrollbar = tk.Scrollbar(category_outer_frame, orient=tk.VERTICAL)
+        category_listbox = tk.Listbox(category_outer_frame, bg="black", fg="white", font=("Arial", 12),
+                                     width=15, exportselection=False,
+                                     yscrollcommand=category_scrollbar.set)
+        category_scrollbar.config(command=category_listbox.yview)
+        category_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        category_listbox.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.Y, expand=True)
+
 
         # Right frame for items
-        item_frame = tk.LabelFrame(main_frame, text="Items", font=("Arial", 12), bg="black", fg="white")
-        item_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        item_outer_frame = tk.LabelFrame(main_frame, text="Items", font=("Arial", 12), bg="black", fg="white")
+        item_outer_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        item_listbox = tk.Listbox(item_frame, bg="black", fg="white", font=("Arial", 12), width=30, exportselection=False)
-        item_listbox.pack(pady=5, padx=5, fill=tk.BOTH, expand=True)
+        item_scrollbar = tk.Scrollbar(item_outer_frame, orient=tk.VERTICAL)
+        item_listbox = tk.Listbox(item_outer_frame, bg="black", fg="white", font=("Arial", 12),
+                                width=30, exportselection=False,
+                                yscrollcommand=item_scrollbar.set)
+        item_scrollbar.config(command=item_listbox.yview)
+        item_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        item_listbox.pack(side=tk.LEFT, pady=5, padx=5, fill=tk.BOTH, expand=True)
+
 
         # Feedback label
         feedback_label = tk.Label(fab_popup, text="", font=("Arial", 12), bg="black", fg="cyan")
@@ -1303,88 +1316,191 @@ class Engineering:
         # --- Fabricatable items data (Now uses item definitions) ---
         # Define which item IDs can be fabricated
         fabricatable_item_ids = {
-            "Tool": ["wrench", "screwdriver", "wirecutters"]
+            "Tool": ["wrench", "screwdriver", "wirecutters", "flashlight", "basic_tools"],
+            "Book": ["welcome_guide", "station_map", "maintenance_manual"],
+            "Component": ["circuit_board", "battery_pack", "power_cell"] # Example addition
             # Add more categories and item IDs here later
         }
 
         # Store item definitions for easy access
         fabricatable_items_data = {}
+        valid_categories = [] # Keep track of categories with valid items
         for category, item_ids in fabricatable_item_ids.items():
-            fabricatable_items_data[category] = []
+            items_in_category = []
             for item_id in item_ids:
-                item_def = get_item_definition(item_id)
+                item_def = get_item_definition(item_id) # Fetch from items.py
                 if item_def:
-                    fabricatable_items_data[category].append(item_def)
+                    items_in_category.append(item_def)
+            if items_in_category: # Only add category if it has items
+                fabricatable_items_data[category] = items_in_category
+                valid_categories.append(category)
+
 
         # Populate categories
-        for category in fabricatable_items_data:
+        category_listbox.delete(0, tk.END) # Clear previous entries
+        for category in valid_categories:
             category_listbox.insert(tk.END, category)
 
         # Function to update items based on selected category
         def update_items(event=None):
             selected_category_indices = category_listbox.curselection()
+            item_listbox.delete(0, tk.END) # Clear items listbox
+
             if not selected_category_indices:
-                item_listbox.delete(0, tk.END)
-                return
-            
-            selected_category = category_listbox.get(selected_category_indices[0])
-            item_listbox.delete(0, tk.END)
-            
+                return # No category selected
+
+            try:
+                selected_category_index = selected_category_indices[0]
+                selected_category = category_listbox.get(selected_category_index)
+            except tk.TclError:
+                 # Handle potential error if listbox is modified during event
+                 return
+
             if selected_category in fabricatable_items_data:
                 for item_def in fabricatable_items_data[selected_category]:
-                    # Store the item_id in the listbox for retrieval
+                    # Store the item_id with the listbox item
                     item_listbox.insert(tk.END, item_def['name'])
-                    item_listbox.itemconfig(tk.END, {'user_data': item_def['id']}) # Store ID
+                    # Use itemcget/itemconfig to associate data; simpler way is often a parallel list or dict
+                    # Let's use a dictionary to map listbox index to item_id for robustness
+                    current_index = item_listbox.size() - 1
+                    item_listbox.itemconfig(current_index, {'fg': 'white'}) # Example: Reset color if needed
+
+            # Store mapping from listbox index to item_id for the current view
+            # Need a way to map listbox selection back to item_id
+            # Option 1: Rebuild a mapping whenever category changes
+            # Option 2: Store ID directly in listbox (less reliable across Tk versions/platforms)
+            # Let's stick to mapping via index lookup in the current category's item list
+            # (This is handled implicitly when retrieving selection in create_item)
+
 
         category_listbox.bind('<<ListboxSelect>>', update_items)
-        
-        # Select "Tool" by default if it exists
-        if "Tool" in fabricatable_items_data:
+
+        # Select the first category by default if available
+        if valid_categories:
              category_listbox.selection_set(0)
              update_items() # Manually call once to populate items initially
 
         # Create button function
         def create_item():
+            selected_category_indices = category_listbox.curselection()
             selected_item_indices = item_listbox.curselection()
-            if not selected_item_indices:
-                feedback_label.config(text="Please select an item to create.", fg="orange")
+
+            if not selected_category_indices or not selected_item_indices:
+                feedback_label.config(text="Please select a category and an item.", fg="orange")
+                fab_popup.after(3000, lambda: feedback_label.config(text="")) # Clear message
                 return
 
-            # Retrieve the item_id stored in the listbox item
-            selected_index = selected_item_indices[0]
-            item_id = item_listbox.itemcget(selected_index, 'user_data')
-            item_name = item_listbox.get(selected_index)
-
-            if not item_id:
-                feedback_label.config(text="Error retrieving item data.", fg="red")
+            try:
+                selected_category = category_listbox.get(selected_category_indices[0])
+                selected_item_index = selected_item_indices[0]
+            except tk.TclError:
+                feedback_label.config(text="Selection error. Please try again.", fg="red")
+                fab_popup.after(3000, lambda: feedback_label.config(text="")) # Clear message
                 return
 
-            # Get a *copy* of the item definition
-            item_definition = get_item_definition(item_id)
-            if not item_definition:
-                 feedback_label.config(text="Error: Item definition not found.", fg="red")
-                 return
 
-            # Ensure inventory list exists
-            self.player_data.setdefault("inventory", [])
-            
-            # Add the full item dictionary copy to inventory
-            self.player_data["inventory"].append(item_definition)
-            
-            # Show confirmation message
-            feedback_label.config(text=f"'{item_name}' created successfully.", fg="cyan")
-            
-            # Optionally add a note (consider adding item ID or name)
-            # self.add_note(f"Fabricated a {item_name} ({item_id}).")
+            # Retrieve the item definition based on the selection
+            if selected_category in fabricatable_items_data and selected_item_index < len(fabricatable_items_data[selected_category]):
+                item_def_selected = fabricatable_items_data[selected_category][selected_item_index]
+                item_id = item_def_selected['id']
+                item_name = item_def_selected['name'] # Get name directly from the definition
+
+                # Get a *fresh copy* of the item definition using the helper function
+                item_definition_copy = get_item_definition(item_id)
+                if not item_definition_copy:
+                     feedback_label.config(text=f"Error: Item definition for '{item_id}' not found.", fg="red")
+                     fab_popup.after(3000, lambda: feedback_label.config(text="")) # Clear message
+                     return
+
+                # Ensure inventory list exists
+                self.player_data.setdefault("inventory", [])
+
+                # Add the full item dictionary copy to inventory
+                self.player_data["inventory"].append(item_definition_copy)
+
+                # Show confirmation message
+                feedback_label.config(text=f"'{item_name}' created successfully.", fg="cyan")
+
+                # Add note about fabrication
+                self.add_note(f"Fabricated a {item_name} ({item_id}) in Engineering.")
+
+            else:
+                 feedback_label.config(text="Error retrieving selected item data.", fg="red")
+
 
             # Clear message after a delay
-            fab_popup.after(1500, lambda: feedback_label.config(text=""))
+            fab_popup.after(3000, lambda: feedback_label.config(text=""))
+
 
         create_btn = tk.Button(button_frame, text="Create", font=("Arial", 12), width=10, command=create_item)
         create_btn.pack(side=tk.LEFT, padx=10)
 
+        # Add Examine button
+        examine_btn = tk.Button(button_frame, text="Examine", font=("Arial", 12), width=10, command=lambda: examine_item(category_listbox, item_listbox, feedback_label, fabricatable_items_data))
+        examine_btn.pack(side=tk.LEFT, padx=10)
+
         close_btn = tk.Button(button_frame, text="Close", font=("Arial", 12), width=10, command=fab_popup.destroy)
         close_btn.pack(side=tk.LEFT, padx=10)
+
+        # Function to examine the selected item
+        def examine_item(cat_listbox, itm_listbox, feedback_lbl, items_data):
+            selected_category_indices = cat_listbox.curselection()
+            selected_item_indices = itm_listbox.curselection()
+
+            if not selected_category_indices or not selected_item_indices:
+                feedback_lbl.config(text="Please select a category and an item to examine.", fg="orange")
+                fab_popup.after(4000, lambda: feedback_lbl.config(text="")) # Clear message longer
+                return
+
+            try:
+                selected_category = cat_listbox.get(selected_category_indices[0])
+                selected_item_index = selected_item_indices[0]
+            except tk.TclError:
+                feedback_lbl.config(text="Selection error. Please try again.", fg="red")
+                fab_popup.after(3000, lambda: feedback_lbl.config(text="")) # Clear message
+                return
+
+            # Retrieve the item definition based on the selection
+            if selected_category in items_data and selected_item_index < len(items_data[selected_category]):
+                item_def_selected = items_data[selected_category][selected_item_index]
+                item_description = item_def_selected.get('description', "No description available.")
+
+                # Display the description
+                feedback_lbl.config(text=f"Examine: {item_description}", fg="yellow") # Use yellow for examine
+                # Don't auto-clear examine message, let user read it
+                # fab_popup.after(5000, lambda: feedback_lbl.config(text=""))
+            else:
+                 feedback_lbl.config(text="Error retrieving selected item data for examination.", fg="red")
+                 fab_popup.after(3000, lambda: feedback_lbl.config(text="")) # Clear error message
+
+        # Mouse wheel binding for listboxes (bind to the window, check focus)
+        def _on_mousewheel(event):
+            widget = fab_popup.focus_get()
+            if widget == category_listbox:
+                 category_listbox.yview_scroll(int(-1*(event.delta/120)), "units")
+            elif widget == item_listbox:
+                 item_listbox.yview_scroll(int(-1*(event.delta/120)), "units")
+            # Optionally, could check if mouse is *over* a listbox if focus isn't reliable
+            # else:
+            #     x, y = fab_popup.winfo_pointerxy()
+            #     widget_under_mouse = fab_popup.winfo_containing(x, y)
+            #     if widget_under_mouse == category_listbox:
+            #          category_listbox.yview_scroll(int(-1*(event.delta/120)), "units")
+            #     elif widget_under_mouse == item_listbox:
+            #          item_listbox.yview_scroll(int(-1*(event.delta/120)), "units")
+
+
+        fab_popup.bind("<MouseWheel>", _on_mousewheel)
+
+        # Cleanup binding on close
+        orig_destroy = fab_popup.destroy
+        def _destroy_and_cleanup():
+            try:
+                fab_popup.unbind("<MouseWheel>")
+            except tk.TclError:
+                pass # Ignore if already unbound or window destroyed
+            orig_destroy()
+        fab_popup.destroy = _destroy_and_cleanup
     
     def access_engineering_station(self):
         # Clear existing buttons
@@ -2256,6 +2372,17 @@ class Engineering:
         else:
             # Show regular options for unauthorized personnel
             self.show_room_options()
+
+    # --- Add the missing helper method here ---
+    def add_note(self, text):
+        """Helper method to add notes to player_data"""
+        if "notes" not in self.player_data:
+            self.player_data["notes"] = []
+        self.player_data["notes"].append({
+            "timestamp": datetime.datetime.now().isoformat(),
+            "text": text
+        })
+    # --- End of added method ---
 
 class Bar:
     def __init__(self, parent_window, player_data, station_crew, return_callback):
