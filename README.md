@@ -33,4 +33,9 @@ A Vibe Coding experiement, based on Space Station 13
     * This release was painful. Everything up to release 32 was 10% me prompting, 85% Claude messing up, and 5% me trying to fix
     * As a test, I tried Gemini 2.5 Max. 
     * I was able to fix everything within 2 prompts
-    * Gemini 2.5 Max is primiary from here on out  
+    * Gemini 2.5 Max is primiary from here on out
+  * release 41.2.0 - Tried to add a new save/load system, but decided to end the project here
+ 
+  ANY OTHER COMMITS PAST THIS POINT ARE NOT VIBE CODING. 
+  I WILL CONTINUE WORKING IN ANOTHER REPO. 
+  LINK TO COME SOON
